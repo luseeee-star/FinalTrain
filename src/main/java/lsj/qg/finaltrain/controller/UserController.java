@@ -1,7 +1,7 @@
 package lsj.qg.finaltrain.controller;
 
 import lsj.qg.finaltrain.pojo.User;
-import lsj.qg.finaltrain.service.UserService;
+import lsj.qg.finaltrain.service.impl.UserServiceImpl;
 import lsj.qg.finaltrain.utils.JwtUtil;
 import lsj.qg.finaltrain.utils.ResultJson;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -16,7 +16,7 @@ import java.util.Map;
 public class UserController {
 
     @Autowired
-    private UserService userService;
+    private UserServiceImpl userServiceImpl;
 
     @Autowired
     private JwtUtil jwtUtil;
@@ -37,7 +37,7 @@ public class UserController {
             user.setEmail(email);
             user.setPhone(phone);
 
-            userService.register(user, confirmPassword);
+            userServiceImpl.register(user, confirmPassword);
             return ResultJson.success("注册成功");
         } catch (IllegalArgumentException e) {
             return ResultJson.error(e.getMessage());
@@ -53,7 +53,7 @@ public class UserController {
             String account = request.get("account");
             String password = request.get("password");
 
-            User user = userService.login(account, password);
+            User user = userServiceImpl.login(account, password);
 
             // 生成token
             Map<String, Object> claims = new HashMap<>();
