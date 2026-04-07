@@ -3,13 +3,11 @@ spring:
     name: "FinalTrain"
   datasource:
     driver-class-name: com.mysql.cj.jdbc.Driver
-    url : ${DB_URL}
+    url : ${DB_URL1}
     username : ${DB_USER}
     password: ${DB_PASSWORD}
 
 mybatis-plus:
-  # ??XML???????
-  mapper-locations: classpath:/mapper/*.xml
   configuration:
-    # ????????
     map-underscore-to-camel-case: true
+    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl

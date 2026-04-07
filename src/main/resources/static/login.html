@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>校园AI失物招领 - 登录</title>
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <script src="https://unpkg.com/axios/dist/axios.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+</head>
+<body class="bg-gray-100 flex items-center justify-center h-screen">
+
+<div id="app" class="bg-white p-8 rounded-lg shadow-md w-96">
+    <h2 class="text-2xl font-bold mb-6 text-center text-blue-600">用户登录</h2>
+
+    <div class="space-y-4">
+        <div>
+            <label class="block text-sm font-medium text-gray-700">手机号 / 邮箱</label>
+            <input v-model="form.account" type="text" class="mt-1 block w-full border border-gray-300 rounded-md p-2 shadow-sm focus:ring-blue-500 focus:border-blue-500" placeholder="请输入手机号或邮箱">
+        </div>
+
+        <div>
+            <label class="block text-sm font-medium text-gray-700">密码</label>
+            <input v-model="form.password" type="password" class="mt-1 block w-full border border-gray-300 rounded-md p-2 shadow-sm focus:ring-blue-500 focus:border-blue-500" placeholder="请输入密码">
+        </div>
+
+        <button @click="handleLogin" :disabled="loading" class="w-full bg-blue-600 text-white p-2 rounded-md hover:bg-blue-700 transition disabled:bg-gray-400 font-bold">
+            {{ loading ? '验证中...' : '立即登录' }}
+        </button>
+    </div>
+
+    <div v-if="message" :class="isError ? 'text-red-500' : 'text-green-500'" class="mt-4 text-center text-sm font-bold">
+        {{ message }}
+    </div>
+
+    <div class="mt-6 text-center border-t pt-4">
+        <span class="text-sm text-gray-600">还没有账号？</span>
+        <a href="register.html" class="text-sm text-blue-600 hover:underline font-medium">去注册</a>
+    </div>
+</div>
+
+<script>
+    const { createApp, ref } = Vue;
+
+    createApp({
+        setup() {
+            const form = ref({
+                account: '',
+                password: ''
+            });
+
+            const loading = ref(false);
+            const message = ref('');
+            const isError = ref(false);
+
+            const handleLogin = async () => {
+                loading.value = true;
+                message.value = ''; // 每次点击清空上次提示
+
+                try {
+                    const response = await axios.post('http://localhost:8080/Users/login', {
+                        account: form.value.account,
+                        password: form.value.password
+                    });
+
+                    if (response.data.code === 200) {
+                        isError.value = false;
+                        // 存储 Token
+                        if (response.data.data) {
+                            localStorage.setItem('token', response.data.data);
+                        }
+
+                        // --- 重点：只有成功才弹窗 ---
+                        Swal.fire({
+                            title: '欢迎回来!',
+                            text: '登录成功，正在进入大厅...',
+                            icon: 'success',
+                            timer: 1500,
+                            showConfirmButton: false,
+                            background: '#fff',
+                            iconColor: '#2563eb'
+                        }).then(() => {
+                            window.location.href = 'index.html';
+                        });
+
+                    } else {
+                        // 失败时不弹窗，显示红字
+                        isError.value = true;
+                        message.value = '登录失败：' + (response.data.msg || '账号或密码错误');
+                    }
+                } catch (error) {
+                    isError.value = true;
+                    message.value = '服务器连接失败，请检查网络或后端状态';
+                } finally {
+                    loading.value = false;
+                }
+            };
+
+            return { form, loading, message, isError, handleLogin };
+        }
+    }).mount('#app');
+</script>
+</body>
+</html>
