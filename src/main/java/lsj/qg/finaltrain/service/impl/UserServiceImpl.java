@@ -4,7 +4,6 @@ import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import lsj.qg.finaltrain.mapper.UserMapper;
 import lsj.qg.finaltrain.pojo.User;
 import lsj.qg.finaltrain.service.UserService;
-import lsj.qg.finaltrain.utils.JwtUtil;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -17,8 +16,6 @@ public class UserServiceImpl implements UserService {
 
     @Autowired
     private UserMapper userMapper;
-    @Autowired
-    private JwtUtil jwtutil;
 
     private final BCryptPasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
 
@@ -66,7 +63,7 @@ public class UserServiceImpl implements UserService {
     //登录
     @Override
     public User login(String account, String password) {
-        // 查询条件：(phone = account OR email = account)
+        // mp框架用eq条件查询，(手机号或邮箱) + 密码
         User user = userMapper.selectOne(new QueryWrapper<User>()
                 .eq("phone", account)
                 .or()
@@ -76,7 +73,7 @@ public class UserServiceImpl implements UserService {
             throw new IllegalArgumentException("账号不存在");
         }
 
-        // 使用你引入的 BCrypt 校验密码
+        // 使用BCrypt校验密码
         if (!passwordEncoder.matches(password, user.getPassword())) {
             throw new IllegalArgumentException("密码错误");
         }

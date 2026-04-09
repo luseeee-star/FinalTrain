@@ -16,6 +16,9 @@ public class User {
 
     private String nickname; // 展示名称
 
+    @TableField("avatarurl")
+    private String avatarUrl; // 头像地址
+
     private String email;
 
     private String phone;

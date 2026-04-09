@@ -6,6 +6,7 @@
     <title>校园AI失物招领 - 注册</title>
     <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
     <script src="https://unpkg.com/axios/dist/axios.min.js"></script>
+    <script src="./http.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 </head>
@@ -103,9 +104,9 @@
                     };
 
                     // 请确保 URL 路径与后端 Controller 保持一致 (注意 Users 的大小写)
-                    const response = await axios.post('http://localhost:8080/Users/register', requestData);
+                    const response = await window.httpClient.request('/Users/register', 'POST', requestData);
 
-                    if (response.data.code === 200) {
+                    if (response && response.code === 200) {
                         // 成功弹窗
                         Swal.fire({
                             title: '注册成功!',
@@ -117,7 +118,7 @@
                             window.location.href = 'login.html';
                         });
                     } else {
-                        message.value = '登录失败：' + (response.data.msg || '账号或密码错误');
+                        message.value = '注册失败：' + (response.msg || '请检查输入信息');
                     }
                 } catch (error) {
                     message.value = '服务器连接失败，请检查网络或后端状态';

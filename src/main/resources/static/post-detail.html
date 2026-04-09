@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>帖子详情</title>
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <script src="https://unpkg.com/axios/dist/axios.min.js"></script>
+    <script src="./http.js"></script>
+    <style>
+        body { margin: 0; background: #f3f4f6; color: #111827; font-family: "Microsoft YaHei", Arial, sans-serif; }
+        .container { max-width: 980px; margin: 0 auto; padding: 20px; }
+        .card { background: #fff; border-radius: 12px; padding: 16px; box-shadow: 0 2px 10px rgba(0,0,0,.06); margin-bottom: 14px; }
+        .title { font-size: 24px; margin: 0 0 10px; }
+        .meta { color: #6b7280; font-size: 13px; margin-bottom: 10px; }
+        .desc { line-height: 1.6; }
+        .img { max-width: 100%; border-radius: 8px; margin-top: 10px; }
+        .btn { border: none; border-radius: 8px; padding: 8px 12px; cursor: pointer; }
+        .btn-primary { background: #2563eb; color: #fff; }
+        .btn-gray { background: #e5e7eb; color: #111827; }
+        .comment { border-bottom: 1px solid #e5e7eb; padding: 10px 0; }
+        .comment:last-child { border-bottom: none; }
+        .author-inline { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; color: #6b7280; font-size: 13px; }
+        .author-avatar { width: 28px; height: 28px; border-radius: 50%; object-fit: cover; border: 1px solid #e5e7eb; }
+        .comment-head { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
+        .comment-avatar { width: 24px; height: 24px; border-radius: 50%; object-fit: cover; border: 1px solid #e5e7eb; }
+        .comment-name { font-weight: 700; margin-bottom: 4px; }
+        .comment-time { color: #6b7280; font-size: 12px; }
+        .comment-box { display: grid; grid-template-columns: 1fr 100px; gap: 10px; margin-top: 10px; }
+        .input, .textarea { border: 1px solid #d1d5db; border-radius: 8px; padding: 8px 10px; width: 100%; font-size: 14px; }
+        .textarea { min-height: 84px; resize: vertical; }
+        .hint { color: #6b7280; font-size: 13px; }
+    </style>
+</head>
+<body>
+<div id="app" class="container">
+    <div class="card">
+        <button class="btn btn-gray" @click="backToHome">返回主页</button>
+    </div>
+
+    <div class="card" v-if="post">
+        <h1 class="title">{{ post.itemName || '帖子详情' }}</h1>
+        <div class="meta">
+            类型：{{ post.type === 1 ? '失物信息' : '拾取信息' }} ｜ 地点：{{ post.location || '未填写' }} ｜ 时间：{{ formatTime(post.eventTime || post.createTime) }}
+        </div>
+        <div class="author-inline">
+            <img v-if="post.userAvatarUrl" :src="resolveImageUrl(post.userAvatarUrl)" alt="头像" class="author-avatar">
+            <span>发布者：{{ post.userNickname || ('用户' + post.userId) }}</span>
+        </div>
+        <div class="desc">{{ post.description || '暂无描述' }}</div>
+        <div class="meta" style="margin-top: 10px;">联系方式：{{ post.contactInfo || '未公开' }}</div>
+        <img v-if="post.imageUrl" :src="resolveImageUrl(post.imageUrl)" alt="物品图片" class="img">
+    </div>
+
+    <div class="card">
+        <h3 style="margin-top:0;">评论区</h3>
+        <p class="hint">点击发评论后，会通过 WebSocket 发到后端并实时追加，效果类似 X 的帖子回复。</p>
+        <div class="comment-box">
+            <textarea v-model.trim="commentText" class="textarea" placeholder="写下你的留言..."></textarea>
+            <button class="btn btn-primary" @click="sendComment">发评论</button>
+        </div>
+        <div style="margin-top: 14px;">
+            <div class="comment" v-for="c in comments" :key="c.id || (c.senderId + '-' + c.createTime + '-' + c.content)">
+                <div class="comment-head">
+                    <img v-if="c.senderAvatarUrl" :src="resolveImageUrl(c.senderAvatarUrl)" alt="头像" class="comment-avatar">
+                    <div class="comment-name">{{ c.senderName || ('用户' + c.senderId) }}</div>
+                </div>
+                <div>{{ c.content }}</div>
+                <div class="comment-time">{{ formatTime(c.createTime) }}</div>
+            </div>
+            <div v-if="comments.length === 0" class="hint">暂无评论，来发第一条吧。</div>
+        </div>
+    </div>
+</div>
+
+<script>
+    const { createApp, ref, onMounted } = Vue;
+
+    createApp({
+        setup() {
+            const post = ref(null);
+            const comments = ref([]);
+            const commentText = ref('');
+            const wsRef = ref(null);
+            const postId = ref(null);
+            const currentUserId = ref(null);
+
+            function parseUserIdFromToken() {
+                try {
+                    const token = localStorage.getItem('token');
+                    if (!token) return null;
+                    const payloadPart = token.split('.')[1] || '';
+                    if (!payloadPart) return null;
+                    const base64 = payloadPart.replace(/-/g, '+').replace(/_/g, '/');
+                    const padded = base64 + '='.repeat((4 - base64.length % 4) % 4);
+                    const payload = JSON.parse(atob(padded));
+                    const claims = payload && payload.claims ? payload.claims : {};
+                    return claims.userid ? Number(claims.userid) : null;
+                } catch (e) {
+                    return null;
+                }
+            }
+
+            function formatTime(v) {
+                if (!v) return '刚刚';
+                const d = new Date(v);
+                if (isNaN(d.getTime())) return String(v);
+                const y = d.getFullYear();
+                const m = String(d.getMonth() + 1).padStart(2, '0');
+                const day = String(d.getDate()).padStart(2, '0');
+                const hh = String(d.getHours()).padStart(2, '0');
+                const mm = String(d.getMinutes()).padStart(2, '0');
+                return y + '-' + m + '-' + day + ' ' + hh + ':' + mm;
+            }
+
+            function resolveImageUrl(url) {
+                if (!url) return '';
+                if (/^https?:\/\//i.test(url)) return url;
+                return window.location.origin + (url.startsWith('/') ? url : ('/' + url));
+            }
+
+            async function safeRequest(url, method, data, config) {
+                const resp = await window.httpClient.request(url, method, data, config);
+                if (!resp || resp.code !== 200) {
+                    throw new Error((resp && resp.msg) || '请求失败');
+                }
+                return resp.data;
+            }
+
+            async function loadPost() {
+                post.value = await safeRequest('/StuItems/detail/' + encodeURIComponent(postId.value), 'GET');
+            }
+
+            async function loadComments() {
+                const list = await safeRequest('/message/comments/' + encodeURIComponent(postId.value), 'GET');
+                comments.value = list || [];
+            }
+
+            function initWs() {
+                const token = localStorage.getItem('token');
+                if (!token) return;
+                const ws = new WebSocket('ws://localhost:8080/chat?token=' + encodeURIComponent(token));
+                ws.onmessage = function (evt) {
+                    try {
+                        const msg = JSON.parse(evt.data);
+                        if (Number(msg.type) === 1 && Number(msg.postId) === Number(postId.value)) {
+                            comments.value.push(msg);
+                        }
+                    } catch (e) {}
+                };
+                wsRef.value = ws;
+            }
+
+            function sendComment() {
+                if (!commentText.value) return;
+                if (!wsRef.value || wsRef.value.readyState !== WebSocket.OPEN) {
+                    alert('评论通道未连接，请稍后重试');
+                    return;
+                }
+                if (!post.value) return;
+                const message = {
+                    type: 1,
+                    postId: Number(postId.value),
+                    senderId: currentUserId.value,
+                    receiverId: post.value.userId || post.value.id,
+                    content: commentText.value,
+                    isRead: 0,
+                    createTime: new Date().toISOString()
+                };
+                wsRef.value.send(JSON.stringify(message));
+                comments.value.push(Object.assign({ senderName: '我' }, message));
+                commentText.value = '';
+            }
+
+            function backToHome() {
+                window.location.href = 'index.html';
+            }
+
+            onMounted(async function () {
+                const q = new URLSearchParams(window.location.search);
+                postId.value = q.get('postId');
+                currentUserId.value = parseUserIdFromToken();
+                if (!postId.value || !currentUserId.value) {
+                    window.location.href = 'login.html';
+                    return;
+                }
+                try {
+                    await loadPost();
+                    await loadComments();
+                    initWs();
+                } catch (e) {
+                    alert('加载失败：' + e.message);
+                }
+            });
+
+            return {
+                post,
+                comments,
+                commentText,
+                formatTime,
+                resolveImageUrl,
+                sendComment,
+                backToHome
+            };
+        }
+    }).mount('#app');
+</script>
+</body>
+</html>

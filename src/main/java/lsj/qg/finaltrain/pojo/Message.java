@@ -2,6 +2,7 @@ package lsj.qg.finaltrain.pojo;
 
 import com.baomidou.mybatisplus.annotation.*;
 import lombok.Data;
+
 import java.time.LocalDateTime;
 
 @Data
@@ -12,9 +13,14 @@ public class Message {
 
     private Integer type; // 1-评论, 2-私聊
 
-    private Long postId; // 如果是私聊，前端传null即可
+    private Long postId;
 
     private Long senderId;
+
+    private String senderName;
+
+    @TableField(exist = false)
+    private String senderAvatarUrl;
 
     private Long receiverId;
 
