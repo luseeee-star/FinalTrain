@@ -25,6 +25,8 @@
         .comment-head { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
         .comment-avatar { width: 24px; height: 24px; border-radius: 50%; object-fit: cover; border: 1px solid #e5e7eb; }
         .comment-name { font-weight: 700; margin-bottom: 4px; }
+        .pm-btn { border: 1px solid #d1d5db; background: #fff; color: #374151; border-radius: 6px; padding: 2px 8px; font-size: 12px; cursor: pointer; }
+        .pm-btn:hover { background: #f3f4f6; }
         .comment-time { color: #6b7280; font-size: 12px; }
         .comment-box { display: grid; grid-template-columns: 1fr 100px; gap: 10px; margin-top: 10px; }
         .input, .textarea { border: 1px solid #d1d5db; border-radius: 8px; padding: 8px 10px; width: 100%; font-size: 14px; }
@@ -46,6 +48,7 @@
         <div class="author-inline">
             <img v-if="post.userAvatarUrl" :src="resolveImageUrl(post.userAvatarUrl)" alt="头像" class="author-avatar">
             <span>发布者：{{ post.userNickname || ('用户' + post.userId) }}</span>
+            <button class="pm-btn" @click="goPrivateChat(post.userId, post.userNickname || ('用户' + post.userId))">私信</button>
         </div>
         <div class="desc">{{ post.description || '暂无描述' }}</div>
         <div class="meta" style="margin-top: 10px;">联系方式：{{ post.contactInfo || '未公开' }}</div>
@@ -54,7 +57,7 @@
 
     <div class="card">
         <h3 style="margin-top:0;">评论区</h3>
-        <p class="hint">点击发评论后，会通过 WebSocket 发到后端并实时追加，效果类似 X 的帖子回复。</p>
+        <p class="hint">以下是评论区</p>
         <div class="comment-box">
             <textarea v-model.trim="commentText" class="textarea" placeholder="写下你的留言..."></textarea>
             <button class="btn btn-primary" @click="sendComment">发评论</button>
@@ -64,6 +67,7 @@
                 <div class="comment-head">
                     <img v-if="c.senderAvatarUrl" :src="resolveImageUrl(c.senderAvatarUrl)" alt="头像" class="comment-avatar">
                     <div class="comment-name">{{ c.senderName || ('用户' + c.senderId) }}</div>
+                    <button class="pm-btn" @click="goPrivateChat(c.senderId, c.senderName || ('用户' + c.senderId))">私信</button>
                 </div>
                 <div>{{ c.content }}</div>
                 <div class="comment-time">{{ formatTime(c.createTime) }}</div>
@@ -176,6 +180,12 @@
                 window.location.href = 'index.html';
             }
 
+            function goPrivateChat(friendId, name) {
+                if (!friendId) return;
+                const nickname = name || ('用户' + friendId);
+                window.location.href = 'chat.html?friendId=' + encodeURIComponent(friendId) + '&name=' + encodeURIComponent(nickname);
+            }
+
             onMounted(async function () {
                 const q = new URLSearchParams(window.location.search);
                 postId.value = q.get('postId');
@@ -199,6 +209,7 @@
                 commentText,
                 formatTime,
                 resolveImageUrl,
+                goPrivateChat,
                 sendComment,
                 backToHome
             };

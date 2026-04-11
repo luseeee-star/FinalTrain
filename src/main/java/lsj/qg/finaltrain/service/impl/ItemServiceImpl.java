@@ -1,6 +1,6 @@
 package lsj.qg.finaltrain.service.impl;
 
-import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import lsj.qg.finaltrain.mapper.ItemMapper;
 import lsj.qg.finaltrain.mapper.ReportMapper;
 import lsj.qg.finaltrain.pojo.ItemPost;
@@ -37,7 +37,7 @@ public class ItemServiceImpl implements ItemService {
     //信息浏览  1-(丢失)  2-(拾取)
     @Override
     public List<ItemPost> SelectByType(Integer type) {
-        return itemMapper.selectList(new QueryWrapper<ItemPost>().eq("type", type));
+        return itemMapper.selectList(new LambdaQueryWrapper<ItemPost>().eq(ItemPost::getType, type));
     }
 
     //举报
@@ -60,9 +60,9 @@ public class ItemServiceImpl implements ItemService {
     public List<ItemPost> SelectById() {
         Map<String,String> map = ThreadLocalUtil.get();
         Long userid = (long) Integer.parseInt(map.get("userid"));
-        return itemMapper.selectList(new QueryWrapper<ItemPost>()
-                .eq("user_id", userid)
-                .eq("type", 1));
+        return itemMapper.selectList(new LambdaQueryWrapper<ItemPost>()
+                .eq(ItemPost::getUserId, userid)
+                .eq(ItemPost::getType, 1));
     }
 
     // 更新数据

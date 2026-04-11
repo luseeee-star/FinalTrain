@@ -36,9 +36,9 @@
   function ensurePageAuth() {
     const page = getCurrentPageName().toLowerCase();
     if (PUBLIC_PAGES.indexOf(page) !== -1) return true;
-    const token = localStorage.getItem('token');
+    const token = sessionStorage.getItem('token');
     if (!isTokenValid(token)) {
-      localStorage.removeItem('token');
+      sessionStorage.removeItem('token');
       window.location.href = LOGIN_PAGE;
       return false;
     }
@@ -55,12 +55,12 @@
   http.interceptors.request.use(
     function (config) {
       //取出token
-      const token = localStorage.getItem('token');
+      const token = sessionStorage.getItem('token');
       if (isTokenValid(token)) {
         config.headers = config.headers || {};
         config.headers.Authorization = token;
       } else if (token) {
-        localStorage.removeItem('token');
+        sessionStorage.removeItem('token');
       }
       return config;
     },
@@ -77,7 +77,7 @@
     function (error) {
       const status = error && error.response ? error.response.status : 0;
       if (status === 401) {
-        localStorage.removeItem('token');
+        sessionStorage.removeItem('token');
         alert('登录已过期，请重新登录');
         if (!location.href.endsWith('/' + LOGIN_PAGE) && !location.href.endsWith(LOGIN_PAGE)) {
           window.location.href = LOGIN_PAGE;

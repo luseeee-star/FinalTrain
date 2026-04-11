@@ -17,7 +17,9 @@ public class WebConfig implements WebMvcConfigurer {
     @Override
     public void addInterceptors(InterceptorRegistry registry) {
         registry.addInterceptor(loginInterceptor)
-                .addPathPatterns("/StuItems/**", "/Users/**")
+                //设置拦截路径
+                .addPathPatterns("/StuItems/**", "/Users/**", "/message/**")
+                //设置拦截白名单
                 .excludePathPatterns("/Users/login", "/Users/register");
     }
 

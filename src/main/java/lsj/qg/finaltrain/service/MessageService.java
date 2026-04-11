@@ -3,9 +3,16 @@ package lsj.qg.finaltrain.service;
 import lsj.qg.finaltrain.pojo.Message;
 
 import java.util.List;
+import java.util.Map;
 
 public interface MessageService {
-    public List<Message> getCommentsByPostId(Long postId);
-    public List<Message> getHistory(Long userid, Long friendId);
-    public Long countUnread(Long userid);
+    List<Message> getCommentsByPostId(Long postId);
+
+    List<Message> getHistory(Long userId, Long friendId);
+
+    Long countUnread(Long userId);
+
+    List<Map<String, Object>> getChatSessions(Long userId);
+
+    void deleteSession(Long userId, Long friendId);
 }

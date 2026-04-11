@@ -15,7 +15,7 @@
         .logo { font-size: 20px; font-weight: 700; margin-bottom: 24px; }
         .menu-btn { width: 100%; border: none; background: transparent; color: #d1d5db; text-align: left; padding: 10px 12px; border-radius: 8px; margin-bottom: 8px; cursor: pointer; }
         .menu-btn.active, .menu-btn:hover { background: #1f2937; color: #fff; }
-        .main { flex: 1; padding: 22px; }
+        .main { flex: 1; padding: 22px; display: flex; flex-direction: column; }
         .toolbar { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-bottom: 16px; }
         .card { background: #fff; border-radius: 12px; padding: 16px; box-shadow: 0 4px 20px rgba(15, 23, 42, 0.06); margin-bottom: 16px; }
         .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
@@ -40,17 +40,82 @@
         .badge-pin { background: #f59e0b; }
         .author-inline { display: flex; align-items: center; gap: 6px; margin-bottom: 8px; font-size: 12px; color: #6b7280; }
         .author-avatar { width: 22px; height: 22px; border-radius: 50%; object-fit: cover; border: 1px solid #e5e7eb; }
+        .pm-btn { border: 1px solid #d1d5db; background: #fff; color: #374151; border-radius: 6px; padding: 2px 8px; font-size: 12px; cursor: pointer; }
+        .pm-btn:hover { background: #f3f4f6; }
         .post-meta { font-size: 12px; color: #6b7280; margin-bottom: 8px; }
         .post-desc { font-size: 14px; color: #374151; line-height: 1.5; }
         .post-actions { margin-top: 12px; }
         .empty { color: #6b7280; text-align: center; padding: 24px 0; }
         .hint { font-size: 13px; color: #6b7280; }
-        .text-danger { color: #dc2626; }
+
+        /* ======== 新增：消息中心布局样式 ======== */
+        .message-center-layout { padding: 0 !important; overflow: hidden; height: 600px; display: flex; }
+        .message-list { width: 260px; border-right: 1px solid #e5e7eb; display: flex; flex-direction: column; background: #fafafa; }
+        .msg-list-header { padding: 16px; font-weight: bold; border-bottom: 1px solid #e5e7eb; }
+        .msg-item { display: flex; align-items: center; padding: 12px; cursor: pointer; border-bottom: 1px solid #f3f4f6; }
+        .msg-item:hover { background: #f1f5f9; }
+        .msg-item.active { background: #eff6ff; border-left: 4px solid #2563eb; }
+        .msg-item-info { margin-left: 10px; flex: 1; overflow: hidden; }
+        .msg-item-name { font-size: 14px; font-weight: 600; }
+        .msg-item-preview { font-size: 12px; color: #6b7280; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .msg-item-actions { margin-left: 6px; display: none; }
+        .msg-item:hover .msg-item-actions { display: block; }
+        .del-chat-btn {
+            background: #fee2e2;
+            color: #ef4444;
+            border: none;
+            width: 20px;
+            height: 20px;
+            border-radius: 4px;
+            font-size: 12px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .del-chat-btn:hover { background: #fecaca; }
+        .unread-badge {
+            background: #ef4444;
+            color: #fff;
+            font-size: 10px;
+            font-weight: bold;
+            min-width: 18px;
+            height: 18px;
+            border-radius: 9px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0 5px;
+            margin-left: 6px;
+        }
+
+        .chat-area { flex: 1; display: flex; flex-direction: column; background: #fff; }
+        .chat-header { padding: 14px 18px; border-bottom: 1px solid #e5e7eb; font-weight: 600; }
+        .chat-body { flex: 1; padding: 18px; overflow-y: auto; background: #f8fafc; }
+        .chat-footer { padding: 14px; border-top: 1px solid #e5e7eb; display: flex; gap: 10px; }
+
+        .bubble { margin-bottom: 12px; display: flex; flex-direction: column; }
+        .bubble-me { align-items: flex-end; }
+        .bubble-other { align-items: flex-start; }
+        .bubble-content { max-width: 70%; padding: 8px 14px; border-radius: 12px; font-size: 14px; }
+        .bubble-me .bubble-content { background: #2563eb; color: #fff; border-bottom-right-radius: 2px; }
+        .bubble-other .bubble-content { background: #e5e7eb; color: #1f2937; border-bottom-left-radius: 2px; }
+        .bubble-time { font-size: 11px; color: #9ca3af; margin-bottom: 4px; }
+
         .top-controls { display: grid; grid-template-columns: 1fr 1fr 170px 100px; gap: 10px; }
-        @media (max-width: 960px) {
-            .layout { flex-direction: column; }
-            .sidebar { width: 100%; }
-            .grid-2, .top-controls { grid-template-columns: 1fr; }
+
+        /* 侧边栏消息中心红点样式 */
+        .sidebar-msg-btn { position: relative; display: flex; align-items: center; justify-content: space-between; }
+        .sidebar-unread-dot {
+            width: 8px;
+            height: 8px;
+            background: #ef4444;
+            border-radius: 50%;
+            position: absolute;
+            right: 12px;
+            top: 50%;
+            transform: translateY(-50%);
+            box-shadow: 0 0 0 2px #111827;
         }
     </style>
 </head>
@@ -63,6 +128,10 @@
         <button class="menu-btn" :class="{active: activeTab === 'mine'}" @click="activeTab = 'mine'">我的帖子管理</button>
         <button class="menu-btn" :class="{active: activeTab === 'pin'}" @click="activeTab = 'pin'">置顶申请</button>
         <button class="menu-btn" :class="{active: activeTab === 'profile'}" @click="openProfile">个人资料</button>
+        <button class="menu-btn sidebar-msg-btn" :class="{active: activeTab === 'messages'}" @click="goToMessages">
+            <span>消息中心</span>
+            <span class="sidebar-unread-dot" v-if="totalUnread > 0"></span>
+        </button>
         <button class="menu-btn" @click="logout">退出登录</button>
     </aside>
 
@@ -71,6 +140,51 @@
             <h2>{{ tabTitle }}</h2>
             <span class="hint">{{ globalMsg }}</span>
         </div>
+
+        <section v-if="activeTab === 'messages'" class="card message-center-layout">
+            <div class="message-list">
+                <div class="msg-list-header">近期联系人</div>
+                <div class="msg-item" v-for="chat in chatList" :key="chat.friendId"
+                     :class="{active: currentChatFriendId === chat.friendId}"
+                     @click="selectChat(chat)">
+                    <img :src="resolveImageUrl(chat.friendAvatarUrl)" class="author-avatar" v-if="chat.friendAvatarUrl">
+                    <div class="author-avatar" style="background: #e5e7eb; display:flex;align-items:center;justify-content:center;font-size:10px;color:#6b7280" v-else>
+                        {{ chat.friendName ? chat.friendName.charAt(0) : '匿' }}
+                    </div>
+                    <div class="msg-item-info">
+                        <div class="msg-item-name">{{ chat.friendName }}</div>
+                        <div class="msg-item-preview">{{ chat.lastContent }}</div>
+                    </div>
+                    <div class="unread-badge" v-if="chat.unreadCount > 0">
+                        {{ chat.unreadCount > 99 ? '99+' : chat.unreadCount }}
+                    </div>
+                    <div class="msg-item-actions">
+                        <button class="del-chat-btn" @click.stop="confirmDeleteChat(chat)" title="删除对话">×</button>
+                    </div>
+                </div>
+                <div v-if="chatList.length === 0" class="empty">暂无对话记录</div>
+            </div>
+
+            <div class="chat-area" v-if="currentChatFriendId">
+                <div class="chat-header">与 {{ currentChatName }} 的对话</div>
+                <div class="chat-body" id="chat-body-box">
+                    <div v-for="m in privateMessages" :key="m.id || (m.senderId + '-' + m.createTime + '-' + m.content)"
+                         :class="['bubble', isMe(m.senderId) ? 'bubble-me' : 'bubble-other']">
+                        <div class="bubble-time" :style="{textAlign: isMe(m.senderId) ? 'right' : 'left'}">
+                            {{ formatTime(m.createTime) }}
+                        </div>
+                        <div class="bubble-content">{{ m.content }}</div>
+                    </div>
+                </div>
+                <div class="chat-footer">
+                    <input v-model="sendText" @keyup.enter="sendPrivateMsg" class="input" placeholder="输入消息内容...">
+                    <button class="btn btn-primary" @click="sendPrivateMsg">发送</button>
+                </div>
+            </div>
+            <div class="chat-area" v-else style="justify-content:center;align-items:center;color:#9ca3af;">
+                请在左侧选择联系人或从帖子点击私信
+            </div>
+        </section>
 
         <section v-if="activeTab === 'create'" class="card">
             <div class="grid-2">
@@ -135,11 +249,15 @@
                     <div class="author-inline">
                         <img v-if="post.userAvatarUrl" :src="resolveImageUrl(post.userAvatarUrl)" alt="头像" class="author-avatar">
                         <span>{{ post.userNickname || ('用户' + post.userId) }}</span>
+                        <button v-if="Number(post.userId) !== currentUserId" class="pm-btn" @click.stop="goPrivateChat(post.userId, post.userNickname || ('用户' + post.userId))">私信</button>
                     </div>
                     <div class="post-meta">
                         地点：{{ post.location || '未填写' }} ｜ 时间：{{ formatTime(post.eventTime || post.createTime) }}
                     </div>
                     <div class="post-desc">{{ post.description || '暂无描述' }}</div>
+                    <div class="post-actions">
+                        <button v-if="!currentUserId || Number(post.userId) !== currentUserId" class="btn btn-warning" @click.stop="openReport(post)">举报</button>
+                    </div>
                 </div>
                 <div v-if="filteredPosts.length === 0" class="empty">暂无符合条件的帖子</div>
             </div>
@@ -157,7 +275,6 @@
                     <div class="post-actions">
                         <button class="btn btn-ghost" @click="startEdit(post)">修改</button>
                         <button class="btn btn-danger" @click="removePost(post.id)">删除</button>
-                        <button class="btn btn-warning" @click="openReport(post)">举报</button>
                     </div>
                 </div>
                 <div v-if="myPosts.length === 0" class="empty">你还没有可管理的帖子</div>
@@ -220,11 +337,12 @@
             <button class="btn btn-ghost" @click="editingPost = null">取消</button>
             <span class="hint">保存后将同步更新数据库。</span>
         </section>
+
     </main>
 </div>
 
 <script>
-    const { createApp, ref, computed, onMounted } = Vue;
+    const { createApp, ref, computed, onMounted, nextTick } = Vue;
 
     createApp({
         setup() {
@@ -239,31 +357,32 @@
             const imagePreviewUrl = ref('');
             const profileAvatarFile = ref(null);
             const profileAvatarPreview = ref('');
-            const profileForm = ref({
-                nickname: ''
-            });
-            const filters = ref({
-                keyword: '',
-                location: '',
-                sortOrder: 'desc'
-            });
+            const profileForm = ref({ nickname: '' });
+            const filters = ref({ keyword: '', location: '', sortOrder: 'desc' });
+
+            // 消息中心相关变量
+            const chatList = ref([]);
+            const currentChatFriendId = ref(null);
+            const currentChatName = ref('');
+            const privateMessages = ref([]);
+            const sendText = ref('');
+            const wsRef = ref(null);
+            const totalUnread = ref(0);
 
             const createForm = ref({
-                type: 1,
-                itemName: '',
-                location: '',
-                eventTime: '',
-                description: '',
-                contactInfo: ''
+                type: 1, itemName: '', location: '', eventTime: '', description: '', contactInfo: ''
             });
 
             const tabTitle = computed(function () {
-                if (activeTab.value === 'create') return '发布失物 / 拾取信息';
-                if (activeTab.value === 'browse') return '信息浏览';
-                if (activeTab.value === 'mine') return '我的帖子管理';
-                if (activeTab.value === 'pin') return '置顶申请';
-                if (activeTab.value === 'profile') return '个人资料设置';
-                return '学生主页';
+                const titles = {
+                    create: '发布失物 / 拾取信息',
+                    browse: '信息浏览',
+                    mine: '我的帖子管理',
+                    pin: '置顶申请',
+                    profile: '个人资料设置',
+                    messages: '消息中心'
+                };
+                return titles[activeTab.value] || '学生主页';
             });
 
             const filteredPosts = computed(function () {
@@ -289,17 +408,17 @@
 
             function parseUserIdFromToken() {
                 try {
-                    const token = localStorage.getItem('token');
+                    const token = sessionStorage.getItem('token');
                     if (!token) return null;
-                    const payloadPart = token.split('.')[1] || '';
-                    if (!payloadPart) return null;
-                    const base64 = payloadPart.replace(/-/g, '+').replace(/_/g, '/');
-                    const padded = base64 + '='.repeat((4 - base64.length % 4) % 4);
-                    const payload = JSON.parse(atob(padded));
-                    const claims = payload && payload.claims ? payload.claims : {};
-                    return claims.userid ? Number(claims.userid) : null;
-                } catch (e) {
-                    return null;
+                    const parts = token.split('.');
+                    if (parts.length < 2) return null;
+                    const payload = JSON.parse(atob(parts[1].replace(/-/g, '+').replace(/_/g, '/')));
+                    // 修正：后端生成的 JWT 负载中 userid 是直接在顶层的，而不是在 claims 对象下
+                    const uid = payload.userid || (payload.claims && payload.claims.userid);
+                    return uid ? Number(uid) : null;
+                } catch (e) { 
+                    console.error('解析 Token 失败:', e);
+                    return null; 
                 }
             }
 
@@ -307,12 +426,12 @@
                 if (!v) return '未知';
                 const d = new Date(v);
                 if (isNaN(d.getTime())) return String(v);
-                const y = d.getFullYear();
-                const m = String(d.getMonth() + 1).padStart(2, '0');
-                const day = String(d.getDate()).padStart(2, '0');
-                const hh = String(d.getHours()).padStart(2, '0');
-                const mm = String(d.getMinutes()).padStart(2, '0');
-                return y + '-' + m + '-' + day + ' ' + hh + ':' + mm;
+                return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+            }
+
+            function isMe(senderId) {
+                if (!senderId || !currentUserId.value) return false;
+                return Number(senderId) === Number(currentUserId.value);
             }
 
             function resolveImageUrl(url) {
@@ -323,234 +442,289 @@
 
             async function safeRequest(url, method, data, config) {
                 const resp = await window.httpClient.request(url, method, data, config);
-                if (!resp || resp.code !== 200) {
-                    throw new Error((resp && resp.msg) || '请求失败');
-                }
+                if (!resp || resp.code !== 200) throw new Error(resp?.msg || '请求失败');
                 return resp.data;
             }
 
+            // 获取总未读消息数
+            async function fetchTotalUnread() {
+                try {
+                    const count = await safeRequest('/message/unread/count', 'GET');
+                    totalUnread.value = Number(count) || 0;
+                } catch (e) {
+                    console.error('获取未读数失败:', e);
+                }
+            }
+
+            // ======== 新增：完整的消息中心方法 ========
+            async function goToMessages() {
+                activeTab.value = 'messages';
+                try {
+                    const list = await safeRequest('/message/sessions', 'GET');
+                    chatList.value = list || [];
+                    // 切换到消息中心时也顺便更新一下总数
+                    fetchTotalUnread();
+                } catch (e) { globalMsg.value = '加载联系人失败'; }
+            }
+
+            function initWs() {
+                // 如果已经连接且正常，不需要重新连
+                if (wsRef.value && wsRef.value.readyState === WebSocket.OPEN) return;
+
+                const token = sessionStorage.getItem('token');
+                if (!token) return;
+
+                // 这里的端口和路径要根据你本地后端实际情况调整
+                const ws = new WebSocket('ws://localhost:8080/chat?token=' + encodeURIComponent(token));
+
+                ws.onopen = () => {
+                    console.log('WebSocket 连接成功');
+                    globalMsg.value = ''; // 连接成功清空错误提示
+                };
+
+                ws.onmessage = function (evt) {
+                    try {
+                        const msg = JSON.parse(evt.data);
+                        console.log('收到实时消息:', msg);
+
+                        // 兼容处理：有些配置下后端可能返回 sender_id 或 senderId
+                        const sId = msg.senderId || msg.sender_id;
+                        const msgType = msg.type || msg.msgType;
+
+                        if (Number(msgType) === 2) {
+                            // 判定逻辑：
+                            // 1. 消息是对方发给我的 (sId === currentChatFriendId)
+                            // 2. 或者是由于后端回发机制，我收到了我自己发出的消息回执 (sId === currentUserId)
+                            const isFromCurrentFriend = Number(sId) === Number(currentChatFriendId.value);
+                            const isFromMe = Number(sId) === Number(currentUserId.value);
+                            
+                            if (isFromCurrentFriend) {
+                                console.log('匹配成功，推入对方消息气泡');
+                                privateMessages.value.push(msg);
+                                nextTick(() => scrollToBottom());
+                            } else if (isFromMe) {
+                                // 如果是自己发的消息回执，且当前列表里还没这条消息（防止重复），则添加
+                                // 实际上 sendPrivateMsg 里已经 push 过了，这里可以用来做发送成功的状态校验
+                                console.log('收到自己的消息回执');
+                            }
+
+                            // 只要有新消息，就刷新左侧会话列表（更新预览文字）
+                            safeRequest('/message/sessions', 'GET').then(list => {
+                                chatList.value = list || [];
+                            });
+                            // 同时更新侧边栏的总未读红点
+                            fetchTotalUnread();
+                        }
+                    } catch (e) {
+                        console.error('解析消息失败:', e);
+                    }
+                };
+
+                ws.onclose = (e) => {
+                    console.log('WebSocket 已断开:', e.code, e.reason);
+                    wsRef.value = null;
+                    // 只有当用户还在消息中心页面时，尝试自动重连
+                    if (activeTab.value === 'messages' || activeTab.value === 'browse') {
+                        console.log('尝试自动重连...');
+                        setTimeout(() => initWs(), 3000);
+                    }
+                };
+                
+                ws.onerror = (err) => {
+                    console.error('WebSocket 错误:', err);
+                    wsRef.value = null;
+                };
+
+                wsRef.value = ws;
+            }
+
+            async function selectChat(chat) {
+                // 防止重复点击同一个人
+                if (currentChatFriendId.value === chat.friendId) return;
+
+                currentChatFriendId.value = chat.friendId;
+                currentChatName.value = chat.friendName || ('用户' + chat.friendId);
+
+                try {
+                    // 从后端拉取历史记录
+                    const msgs = await safeRequest('/message/history/' + chat.friendId, 'GET');
+                    console.log('获取到历史消息数量:', msgs ? msgs.length : 0);
+
+                    // 赋值给响应式变量
+                    privateMessages.value = msgs || [];
+
+                    // 确保在 Vue 渲染完 DOM 后再滚动到底部
+                    nextTick(() => {
+                        scrollToBottom();
+                    });
+
+                    // 初始化 WebSocket（如果没连上的话）
+                    initWs();
+
+                    // 刷新左侧会话列表，以清除当前好友的未读红点
+                    const list = await safeRequest('/message/sessions', 'GET');
+                    chatList.value = list || [];
+                    // 标记已读后同步更新侧边栏红点
+                    fetchTotalUnread();
+                } catch (e) {
+                    console.error('加载聊天记录失败:', e);
+                    globalMsg.value = '加载聊天记录失败';
+                }
+            }
+
+            function sendPrivateMsg() {
+                if (!sendText.value.trim() || !currentChatFriendId.value) return;
+
+                // 检查 WebSocket 状态
+                if (!wsRef.value || wsRef.value.readyState !== WebSocket.OPEN) {
+                    console.warn('尝试重新连接 WebSocket...');
+                    initWs();
+                    alert('聊天连接已断开，请稍后重试');
+                    return;
+                }
+
+                const msgPayload = {
+                    type: 2,
+                    senderId: Number(currentUserId.value),
+                    receiverId: Number(currentChatFriendId.value),
+                    content: sendText.value,
+                    isRead: 0,
+                    createTime: new Date().toISOString()
+                };
+
+                try {
+                    // 发送到后端（存库并转发给对方）
+                    wsRef.value.send(JSON.stringify(msgPayload));
+
+                    // 【关键点】手动把消息加到当前对话框，让发送者自己能看到气泡
+                    privateMessages.value.push({ ...msgPayload });
+
+                    // 清空输入框并滚动到底部
+                    sendText.value = '';
+                    scrollToBottom();
+
+                    // 顺便更新一下左侧列表的最后一条预览
+                    const session = chatList.value.find(c => c.friendId === currentChatFriendId.value);
+                    if (session) session.lastContent = msgPayload.content;
+
+                } catch (e) {
+                    console.error('发送失败:', e);
+                }
+            }
+
+            function scrollToBottom() {
+                nextTick(() => {
+                    const box = document.getElementById('chat-body-box');
+                    if (box) box.scrollTop = box.scrollHeight;
+                });
+            }
+
+            function goPrivateChat(friendId, name) {
+                if (!friendId) return;
+                activeTab.value = 'messages';
+                selectChat({ friendId: friendId, friendName: name });
+            }
+
+            async function confirmDeleteChat(chat) {
+                if (!confirm(`确定要删除与 ${chat.friendName} 的所有聊天记录吗？此操作不可撤销。`)) return;
+                try {
+                    await safeRequest('/message/sessions/' + chat.friendId, 'DELETE');
+                    // 如果当前正在聊这个人的天，清空右侧
+                    if (currentChatFriendId.value === chat.friendId) {
+                        currentChatFriendId.value = null;
+                        currentChatName.value = '';
+                        privateMessages.value = [];
+                    }
+                    // 刷新列表
+                    const list = await safeRequest('/message/sessions', 'GET');
+                    chatList.value = list || [];
+                } catch (e) {
+                    alert('删除失败');
+                }
+            }
+
+            // ======== 保留的原有业务逻辑 ========
             async function reloadPosts() {
                 try {
                     const lost = await safeRequest('/StuItems/selectByType?type=1', 'GET');
                     const found = await safeRequest('/StuItems/selectByType?type=2', 'GET');
                     posts.value = (lost || []).concat(found || []);
-                    myPosts.value = posts.value.filter(function (p) {
-                        return currentUserId.value && Number(p.userId) === currentUserId.value;
-                    });
-                    globalMsg.value = '帖子刷新完成';
-                } catch (e) {
-                    globalMsg.value = '加载帖子失败：' + e.message;
-                }
+                    myPosts.value = posts.value.filter(p => currentUserId.value && Number(p.userId) === currentUserId.value);
+                } catch (e) { globalMsg.value = '加载失败'; }
             }
 
             async function createPost() {
-                if (!createForm.value.itemName || !createForm.value.location || !createForm.value.eventTime || !createForm.value.description) {
-                    globalMsg.value = '请先补齐必填项';
-                    return;
-                }
+                if (!createForm.value.itemName || !createForm.value.location) return;
                 try {
                     const formData = new FormData();
-                    const eventTimeValue = createForm.value.eventTime && createForm.value.eventTime.length === 16
-                        ? createForm.value.eventTime + ':00'
-                        : createForm.value.eventTime;
-                    formData.append('type', String(createForm.value.type));
-                    formData.append('itemName', createForm.value.itemName);
-                    formData.append('location', createForm.value.location);
-                    formData.append('eventTime', eventTimeValue);
-                    formData.append('description', createForm.value.description);
-                    formData.append('contactInfo', createForm.value.contactInfo || '');
-                    formData.append('status', '0');
-                    formData.append('isPinned', '0');
-                    if (selectedImageFile.value) {
-                        formData.append('file', selectedImageFile.value);
-                    }
-
-                    const resp = await window.httpClient.upload('/StuItems/insertItem', formData);
-                    if (!resp || resp.code !== 200) {
-                        throw new Error((resp && resp.msg) || '发布失败');
-                    }
-
-                    globalMsg.value = '发布成功';
-                    createForm.value = { type: 1, itemName: '', location: '', eventTime: '', description: '', contactInfo: '' };
-                    selectedImageFile.value = null;
-                    if (imagePreviewUrl.value) {
-                        URL.revokeObjectURL(imagePreviewUrl.value);
-                        imagePreviewUrl.value = '';
-                    }
-                    await reloadPosts();
+                    Object.keys(createForm.value).forEach(k => formData.append(k, createForm.value[k]));
+                    if (selectedImageFile.value) formData.append('file', selectedImageFile.value);
+                    await window.httpClient.upload('/StuItems/insertItem', formData);
                     activeTab.value = 'browse';
-                } catch (e) {
-                    globalMsg.value = '发布失败：' + e.message;
-                }
-            }
-
-            async function loadProfile() {
-                const data = await safeRequest('/Users/profile', 'GET');
-                profileForm.value.nickname = (data && data.nickname) ? data.nickname : '';
-                profileAvatarPreview.value = (data && data.avatarUrl) ? resolveImageUrl(data.avatarUrl) : '';
-            }
-
-            function onImageChange(event) {
-                const file = event && event.target && event.target.files ? event.target.files[0] : null;
-                selectedImageFile.value = file || null;
-                if (imagePreviewUrl.value) {
-                    URL.revokeObjectURL(imagePreviewUrl.value);
-                    imagePreviewUrl.value = '';
-                }
-                if (selectedImageFile.value) {
-                    imagePreviewUrl.value = URL.createObjectURL(selectedImageFile.value);
-                }
-            }
-
-            function onProfileImageChange(event) {
-                const file = event && event.target && event.target.files ? event.target.files[0] : null;
-                profileAvatarFile.value = file || null;
-                if (profileAvatarFile.value) {
-                    profileAvatarPreview.value = URL.createObjectURL(profileAvatarFile.value);
-                }
+                    reloadPosts();
+                } catch (e) { alert('发布失败'); }
             }
 
             async function saveProfile() {
                 try {
-                    const formData = new FormData();
-                    if (profileForm.value.nickname) {
-                        formData.append('nickname', profileForm.value.nickname);
-                    }
-                    if (profileAvatarFile.value) {
-                        formData.append('file', profileAvatarFile.value);
-                    }
-                    const resp = await window.httpClient.upload('/Users/profile', formData);
-                    if (!resp || resp.code !== 200) {
-                        throw new Error((resp && resp.msg) || '保存失败');
-                    }
-                    globalMsg.value = '资料保存成功';
-                    alert('资料保存成功');
-                    await loadProfile();
-                } catch (e) {
-                    globalMsg.value = '资料保存失败：' + e.message;
-                    alert('资料保存失败：' + e.message);
-                }
+                    const fd = new FormData();
+                    if (profileForm.value.nickname) fd.append('nickname', profileForm.value.nickname);
+                    if (profileAvatarFile.value) fd.append('file', profileAvatarFile.value);
+                    await window.httpClient.upload('/Users/profile', fd);
+                    alert('保存成功');
+                } catch (e) { alert('失败'); }
+            }
+
+            function onImageChange(e) {
+                const file = e.target.files[0];
+                selectedImageFile.value = file;
+                if(imagePreviewUrl.value) URL.revokeObjectURL(imagePreviewUrl.value);
+                imagePreviewUrl.value = URL.createObjectURL(file);
+            }
+
+            function onProfileImageChange(e) {
+                profileAvatarFile.value = e.target.files[0];
+                profileAvatarPreview.value = URL.createObjectURL(e.target.files[0]);
             }
 
             async function openProfile() {
                 activeTab.value = 'profile';
                 try {
-                    await loadProfile();
-                } catch (e) {
-                    globalMsg.value = '资料加载失败：' + e.message;
-                }
+                    const data = await safeRequest('/Users/profile', 'GET');
+                    profileForm.value.nickname = data?.nickname || '';
+                    profileAvatarPreview.value = resolveImageUrl(data?.avatarUrl);
+                } catch (e) { globalMsg.value = '获取资料失败'; }
             }
 
-            function goToDetail(post) {
-                window.location.href = 'post-detail.html?postId=' + encodeURIComponent(post.id) + '&type=' + encodeURIComponent(post.type);
-            }
-
-            function startEdit(post) {
-                editingPost.value = Object.assign({}, post);
-            }
-
+            function logout() { sessionStorage.removeItem('token'); window.location.href = 'login.html'; }
+            function goToDetail(p) { window.location.href = `post-detail.html?postId=${p.id}&type=${p.type}`; }
+            function startEdit(p) { editingPost.value = { ...p }; }
             async function saveEdit() {
-                if (!editingPost.value) return;
-                try {
-                    await safeRequest('/StuItems/updateItem', 'PUT', editingPost.value);
-                    globalMsg.value = '更新成功';
-                    await reloadPosts();
-                } catch (e) {
-                    globalMsg.value = '更新失败：' + e.message;
-                }
-                editingPost.value = null;
+                await safeRequest('/StuItems/updateItem', 'PUT', editingPost.value);
+                editingPost.value = null; reloadPosts();
             }
+            async function removePost(id) { await safeRequest('/StuItems/deleteItem/'+id, 'DELETE'); reloadPosts(); }
+            async function loadMyLostPosts() { myLostPosts.value = await safeRequest('/StuItems/selectById', 'GET') || []; }
+            async function applyPin(p) { await safeRequest('/StuItems/updatepinned/'+p.id, 'PATCH'); p.isPinned = 1; }
 
-            async function removePost(postId) {
-                try {
-                    await safeRequest('/StuItems/deleteItem/' + encodeURIComponent(postId), 'DELETE');
-                    globalMsg.value = '删除成功';
-                    await reloadPosts();
-                } catch (e) {
-                    globalMsg.value = '删除失败：' + e.message;
-                }
-            }
-
-            async function openReport(post) {
-                const reason = window.prompt('请输入举报理由（必填）');
-                if (!reason) return;
-                try {
-                    await safeRequest('/StuItems/reports', 'POST', {
-                        postId: post.id,
-                        reason: reason,
-                        status: 0
-                    });
-                    globalMsg.value = '举报提交成功';
-                } catch (e) {
-                    globalMsg.value = '举报失败：' + e.message;
-                }
-            }
-
-            async function loadMyLostPosts() {
-                try {
-                    const list = await safeRequest('/StuItems/selectById', 'GET');
-                    myLostPosts.value = list || [];
-                    globalMsg.value = '已加载可置顶帖子';
-                } catch (e) {
-                    globalMsg.value = '加载失败：' + e.message;
-                }
-            }
-
-            async function applyPin(post) {
-                try {
-                    await safeRequest('/StuItems/updatepinned/' + encodeURIComponent(post.id), 'PATCH');
-                    post.isPinned = 1;
-                    globalMsg.value = '已提交置顶申请，等待管理员审核';
-                } catch (e) {
-                    globalMsg.value = '置顶申请失败：' + e.message;
-                }
-            }
-
-            function logout() {
-                localStorage.removeItem('token');
-                window.location.href = 'login.html';
-            }
-
-            onMounted(async function () {
+            onMounted(() => {
                 currentUserId.value = parseUserIdFromToken();
-                if (!currentUserId.value) {
-                    window.location.href = 'login.html';
-                    return;
-                }
-                await reloadPosts();
-                await loadProfile();
+                if (!currentUserId.value) { window.location.href = 'login.html'; return; }
+                reloadPosts();
+                // 页面加载后立即初始化 WebSocket，确保能收到新消息通知
+                initWs();
+                // 初始获取一次总未读数，用于显示侧边栏红点
+                fetchTotalUnread();
             });
 
             return {
-                activeTab,
-                globalMsg,
-                posts,
-                myPosts,
-                myLostPosts,
-                editingPost,
-                imagePreviewUrl,
-                profileForm,
-                profileAvatarPreview,
-                filters,
-                createForm,
-                tabTitle,
-                filteredPosts,
-                formatTime,
-                resolveImageUrl,
-                openProfile,
-                reloadPosts,
-                createPost,
-                onImageChange,
-                onProfileImageChange,
-                saveProfile,
-                goToDetail,
-                startEdit,
-                saveEdit,
-                removePost,
-                openReport,
-                loadMyLostPosts,
-                applyPin,
-                logout
+                activeTab, globalMsg, posts, myPosts, myLostPosts, editingPost, imagePreviewUrl,
+                profileForm, profileAvatarPreview, filters, createForm, tabTitle, filteredPosts,
+                chatList, currentChatFriendId, currentChatName, privateMessages, sendText, totalUnread,
+                formatTime, resolveImageUrl, openProfile, reloadPosts, createPost, onImageChange, isMe,
+                onProfileImageChange, saveProfile, goPrivateChat, goToDetail, startEdit, saveEdit,
+                removePost, loadMyLostPosts, applyPin, logout, goToMessages, selectChat, sendPrivateMsg,
+                confirmDeleteChat, fetchTotalUnread
             };
         }
     }).mount('#app');

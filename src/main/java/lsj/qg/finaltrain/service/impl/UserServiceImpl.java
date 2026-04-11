@@ -1,6 +1,6 @@
 package lsj.qg.finaltrain.service.impl;
 
-import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import lsj.qg.finaltrain.mapper.UserMapper;
 import lsj.qg.finaltrain.pojo.User;
 import lsj.qg.finaltrain.service.UserService;
@@ -21,9 +21,7 @@ public class UserServiceImpl implements UserService {
 
     @Override
     public User findByUsername(String username) {
-        QueryWrapper<User> queryWrapper = new QueryWrapper<>();
-        queryWrapper.eq("username", username);
-        return userMapper.selectOne(queryWrapper);
+        return userMapper.selectOne(new LambdaQueryWrapper<User>().eq(User::getUsername, username));
     }
 
     //如果报错回滚事务
@@ -64,10 +62,10 @@ public class UserServiceImpl implements UserService {
     @Override
     public User login(String account, String password) {
         // mp框架用eq条件查询，(手机号或邮箱) + 密码
-        User user = userMapper.selectOne(new QueryWrapper<User>()
-                .eq("phone", account)
+        User user = userMapper.selectOne(new LambdaQueryWrapper<User>()
+                .eq(User::getPhone, account)
                 .or()
-                .eq("email", account));
+                .eq(User::getEmail, account));
 
         if (user == null) {
             throw new IllegalArgumentException("账号不存在");

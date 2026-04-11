@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>私信聊天</title>
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <script src="https://unpkg.com/axios/dist/axios.min.js"></script>
+    <script src="./http.js"></script>
+    <style>
+        body { margin: 0; background: #f5f7fb; font-family: "Microsoft YaHei", Arial, sans-serif; color: #1f2937; }
+        .wrap { max-width: 900px; margin: 0 auto; padding: 18px; }
+        .card { background: #fff; border-radius: 12px; box-shadow: 0 4px 20px rgba(15, 23, 42, 0.06); padding: 14px; margin-bottom: 12px; }
+        .title { margin: 0; font-size: 18px; }
+        .hint { color: #6b7280; font-size: 13px; }
+        .msg-list { max-height: 58vh; overflow-y: auto; display: grid; gap: 10px; }
+        .msg-row { display: flex; }
+        .msg-row.mine { justify-content: flex-end; }
+        .msg-row.other { justify-content: flex-start; }
+        .msg { max-width: 78%; border: 1px solid #e5e7eb; border-radius: 10px; padding: 10px; font-size: 14px; }
+        .msg.mine { border-color: #bfdbfe; background: #eff6ff; }
+        .meta { color: #6b7280; font-size: 12px; margin-bottom: 4px; }
+        .bar { display: grid; grid-template-columns: 1fr 90px; gap: 10px; }
+        .input { border: 1px solid #d1d5db; border-radius: 8px; padding: 10px; font-size: 14px; }
+        .btn { border: none; border-radius: 8px; background: #2563eb; color: #fff; cursor: pointer; }
+        .btn-gray { background: #e5e7eb; color: #111827; }
+    </style>
+</head>
+<body>
+<div id="app" class="wrap">
+    <div class="card">
+        <button class="btn btn-gray" @click="back">返回</button>
+    </div>
+
+    <div class="card">
+        <h2 class="title">与 {{ friendName }} 的私信</h2>
+        <div class="hint">friendId: {{ friendId }}</div>
+    </div>
+
+    <div class="card">
+        <div class="msg-list">
+            <div v-for="m in messages" :key="m.id || (m.senderId + '-' + m.createTime + '-' + m.content)"
+                 class="msg-row" :class="Number(m.senderId) === Number(currentUserId) ? 'mine' : 'other'">
+                <div class="msg" :class="{mine: Number(m.senderId) === Number(currentUserId)}">
+                    <div class="meta">{{ m.senderName || ('用户' + m.senderId) }} · {{ formatTime(m.createTime) }}</div>
+                    <div>{{ m.content }}</div>
+                </div>
+            </div>
+            <div v-if="messages.length === 0" class="hint">暂无聊天记录</div>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="bar">
+            <input class="input" v-model.trim="text" placeholder="输入消息...">
+            <button class="btn" @click="send">发送</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    const { createApp, ref, onMounted } = Vue;
+
+    createApp({
+        setup() {
+            const friendId = ref('');
+            const friendName = ref('');
+            const friendIdNum = ref(null);
+            const currentUserId = ref(null);
+            const text = ref('');
+            const messages = ref([]);
+            const wsRef = ref(null);
+            const http = {
+                get: function (url) {
+                    return window.httpClient.request(url, 'GET');
+                }
+            };
+
+            function parseUserIdFromToken() {
+                try {
+                    const token = localStorage.getItem('token');
+                    if (!token) return null;
+                    const payloadPart = token.split('.')[1] || '';
+                    if (!payloadPart) return null;
+                    const base64 = payloadPart.replace(/-/g, '+').replace(/_/g, '/');
+                    const padded = base64 + '='.repeat((4 - base64.length % 4) % 4);
+                    const payload = JSON.parse(atob(padded));
+                    const claims = payload && payload.claims ? payload.claims : {};
+                    return claims.userid ? Number(claims.userid) : null;
+                } catch (e) {
+                    return null;
+                }
+            }
+
+            function formatTime(v) {
+                if (!v) return '刚刚';
+                const d = new Date(v);
+                if (isNaN(d.getTime())) return String(v);
+                const y = d.getFullYear();
+                const m = String(d.getMonth() + 1).padStart(2, '0');
+                const day = String(d.getDate()).padStart(2, '0');
+                const hh = String(d.getHours()).padStart(2, '0');
+                const mm = String(d.getMinutes()).padStart(2, '0');
+                return y + '-' + m + '-' + day + ' ' + hh + ':' + mm;
+            }
+
+            async function loadHistory() {
+                const resp = await http.get('/message/history/' + encodeURIComponent(friendId.value));
+                if (!resp || resp.code !== 200) {
+                    throw new Error((resp && resp.msg) || '加载历史消息失败');
+                }
+                messages.value = resp.data || [];
+            }
+
+            function initWs() {
+                const token = localStorage.getItem('token');
+                if (!token) return;
+                const ws = new WebSocket('ws://localhost:8080/chat?token=' + encodeURIComponent(token));
+                ws.onmessage = function (evt) {
+                    try {
+                        const msg = JSON.parse(evt.data);
+                        if (Number(msg.type) === 2) {
+                            const isMine = Number(msg.senderId) === Number(currentUserId.value) && Number(msg.receiverId) === Number(friendIdNum.value);
+                            const isOther = Number(msg.senderId) === Number(friendIdNum.value) && Number(msg.receiverId) === Number(currentUserId.value);
+                            if (isMine || isOther) {
+                                messages.value.push(msg);
+                            }
+                        }
+                    } catch (e) {}
+                };
+                wsRef.value = ws;
+            }
+
+            function send() {
+                if (!text.value) return;
+                if (!wsRef.value || wsRef.value.readyState !== WebSocket.OPEN) {
+                    alert('聊天通道未连接，请稍后重试');
+                    return;
+                }
+                const msg = {
+                    type: 2,
+                    senderId: Number(currentUserId.value),
+                    receiverId: Number(friendIdNum.value),
+                    content: text.value,
+                    isRead: 0,
+                    createTime: new Date().toISOString()
+                };
+                wsRef.value.send(JSON.stringify(msg));
+                text.value = '';
+            }
+
+            function back() {
+                window.location.href = 'index.html';
+            }
+
+            onMounted(async function () {
+                const q = new URLSearchParams(window.location.search);
+                friendId.value = q.get('friendId') || '';
+                friendName.value = q.get('friendName') || q.get('name') || ('用户' + friendId.value);
+                friendIdNum.value = friendId.value ? Number(friendId.value) : null;
+                currentUserId.value = parseUserIdFromToken();
+
+                if (!friendId.value || !friendIdNum.value || !currentUserId.value) {
+                    window.location.href = 'login.html';
+                    return;
+                }
+
+                try {
+                    await loadHistory();
+                    initWs();
+                } catch (e) {
+                    alert('加载失败：' + e.message);
+                }
+            });
+
+            return {
+                friendId,
+                friendName,
+                currentUserId,
+                text,
+                messages,
+                formatTime,
+                send,
+                back
+            };
+        }
+    }).mount('#app');
+</script>
+</body>
+</html>
