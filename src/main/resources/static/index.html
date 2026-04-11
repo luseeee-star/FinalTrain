@@ -464,6 +464,10 @@
                     chatList.value = list || [];
                     // 切换到消息中心时也顺便更新一下总数
                     fetchTotalUnread();
+                    // 如果当前已经选中了某个好友，切换回来时自动滚到底部
+                    if (currentChatFriendId.value) {
+                        scrollToBottom();
+                    }
                 } catch (e) { globalMsg.value = '加载联系人失败'; }
             }
 
@@ -553,10 +557,8 @@
                     // 赋值给响应式变量
                     privateMessages.value = msgs || [];
 
-                    // 确保在 Vue 渲染完 DOM 后再滚动到底部
-                    nextTick(() => {
-                        scrollToBottom();
-                    });
+                    // 滚动到底部
+                    scrollToBottom();
 
                     // 初始化 WebSocket（如果没连上的话）
                     initWs();
@@ -615,7 +617,13 @@
             function scrollToBottom() {
                 nextTick(() => {
                     const box = document.getElementById('chat-body-box');
-                    if (box) box.scrollTop = box.scrollHeight;
+                    if (box) {
+                        box.scrollTop = box.scrollHeight;
+                        // 针对部分渲染延迟，做一个极短的延时补偿确保到底部
+                        setTimeout(() => {
+                            box.scrollTop = box.scrollHeight;
+                        }, 30);
+                    }
                 });
             }
 
@@ -715,6 +723,14 @@
                 initWs();
                 // 初始获取一次总未读数，用于显示侧边栏红点
                 fetchTotalUnread();
+
+                // 处理外部跳转请求 (例如从详情页跳转过来聊天)
+                const params = new URLSearchParams(window.location.search);
+                const chatFriendId = params.get('chatWithId');
+                const chatFriendName = params.get('chatWithName');
+                if (chatFriendId) {
+                    goPrivateChat(chatFriendId, chatFriendName || ('用户' + chatFriendId));
+                }
             });
 
             return {

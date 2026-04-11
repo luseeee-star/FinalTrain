@@ -38,8 +38,7 @@ public class MessageController {
     @GetMapping("/history/{friendId}")
     public ResultJson<List<Message>> getChatHistory(@PathVariable Long friendId) {
         Map<String,Object> map = ThreadLocalUtil.get();
-        Object uidObj = map.get("userid");
-        Long userid = Long.parseLong(String.valueOf(uidObj));
+        Long userid = Long.parseLong(String.valueOf(map.get("userid")));
         log.info("正在查询历史消息: userid={}, friendId={}", userid, friendId);
         List<Message> list = messageServiceImpl.getHistory(userid, friendId);
         log.info("查询到历史消息数量: {}", (list != null ? list.size() : 0));
