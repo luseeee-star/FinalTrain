@@ -37,3 +37,4 @@ FinalTrain is a Spring Boot 3.5.9 application for a student lost-and-found syste
 - `src/main/java/lsj/qg/finaltrain/utils/ResultJson.java`: Response wrapper
 - `src/main/java/lsj/qg/finaltrain/websocket/ChatEndpoint.java`: Real-time chat logic</content>
 <parameter name="filePath">D:\Java\FinalTrain\AGENTS.md
+

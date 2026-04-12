@@ -291,7 +291,11 @@
                         <span class="badge badge-lost">失物</span>
                     </div>
                     <div class="post-meta">{{ post.location }} ｜ {{ formatTime(post.eventTime || post.createTime) }}</div>
-                    <button class="btn btn-warning" @click="applyPin(post)">申请置顶</button>
+                    <button class="btn btn-warning"
+                            :disabled="post.isPinned === 1 || post.isPinned === 2 || isPinSubmitting(post.id)"
+                            @click="applyPin(post)">
+                        {{ isPinSubmitting(post.id) ? '提交中...' : (post.isPinned === 2 ? '已置顶' : (post.isPinned === 1 ? '已申请' : '申请置顶')) }}
+                    </button>
                 </div>
                 <div v-if="myLostPosts.length === 0" class="empty">暂无可申请置顶的失物帖</div>
             </div>
@@ -368,6 +372,7 @@
             const sendText = ref('');
             const wsRef = ref(null);
             const totalUnread = ref(0);
+            const pinSubmitting = ref({});
 
             const createForm = ref({
                 type: 1, itemName: '', location: '', eventTime: '', description: '', contactInfo: ''
@@ -432,6 +437,10 @@
             function isMe(senderId) {
                 if (!senderId || !currentUserId.value) return false;
                 return Number(senderId) === Number(currentUserId.value);
+            }
+
+            function isPinSubmitting(postId) {
+                return !!(postId && pinSubmitting.value && pinSubmitting.value[postId]);
             }
 
             function resolveImageUrl(url) {
@@ -704,7 +713,11 @@
                 } catch (e) { globalMsg.value = '获取资料失败'; }
             }
 
-            function logout() { sessionStorage.removeItem('token'); window.location.href = 'login.html'; }
+            function logout() {
+                sessionStorage.removeItem('token');
+                sessionStorage.removeItem('userRole');
+                window.location.href = 'login.html';
+            }
             function goToDetail(p) { window.location.href = `post-detail.html?postId=${p.id}&type=${p.type}`; }
             function startEdit(p) { editingPost.value = { ...p }; }
             async function saveEdit() {
@@ -713,11 +726,33 @@
             }
             async function removePost(id) { await safeRequest('/StuItems/deleteItem/'+id, 'DELETE'); reloadPosts(); }
             async function loadMyLostPosts() { myLostPosts.value = await safeRequest('/StuItems/selectById', 'GET') || []; }
-            async function applyPin(p) { await safeRequest('/StuItems/updatepinned/'+p.id, 'PATCH'); p.isPinned = 1; }
+            async function applyPin(p) {
+                if (!p || !p.id) return;
+                if (p.isPinned === 2) { alert('该帖子已置顶'); return; }
+                if (p.isPinned === 1) { alert('已提交置顶申请，请等待管理员审核'); return; }
+                if (isPinSubmitting(p.id)) return;
+
+                pinSubmitting.value = Object.assign({}, pinSubmitting.value, { [p.id]: true });
+                try {
+                    await safeRequest('/StuItems/updatepinned/' + p.id, 'PATCH');
+                    p.isPinned = 1;
+                    alert('申请置顶已提交，请等待管理员审核');
+                } catch (e) {
+                    alert('申请失败：' + (e && e.message ? e.message : '请稍后重试'));
+                } finally {
+                    const next = Object.assign({}, pinSubmitting.value);
+                    delete next[p.id];
+                    pinSubmitting.value = next;
+                }
+            }
 
             onMounted(() => {
                 currentUserId.value = parseUserIdFromToken();
                 if (!currentUserId.value) { window.location.href = 'login.html'; return; }
+                if (sessionStorage.getItem('userRole') === '1') {
+                    window.location.href = 'admin-index.html';
+                    return;
+                }
                 reloadPosts();
                 // 页面加载后立即初始化 WebSocket，确保能收到新消息通知
                 initWs();
@@ -740,7 +775,7 @@
                 formatTime, resolveImageUrl, openProfile, reloadPosts, createPost, onImageChange, isMe,
                 onProfileImageChange, saveProfile, goPrivateChat, goToDetail, startEdit, saveEdit,
                 removePost, loadMyLostPosts, applyPin, logout, goToMessages, selectChat, sendPrivateMsg,
-                confirmDeleteChat, fetchTotalUnread
+                confirmDeleteChat, fetchTotalUnread, isPinSubmitting
             };
         }
     }).mount('#app');

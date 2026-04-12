@@ -70,6 +70,7 @@ public class UserController {
             claims.put("userid", user.getId().toString());
             claims.put("username", user.getUsername());
             claims.put("status", user.getStatus());
+            claims.put("role", user.getRole());
             String token = JwtUtil.createToken(claims);
 
             //生成session数据

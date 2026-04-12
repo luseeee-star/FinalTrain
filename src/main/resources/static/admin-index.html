@@ -1,0 +1,603 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>校园失物招领 - 管理后台</title>
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <script src="https://unpkg.com/axios/dist/axios.min.js"></script>
+    <script src="./http.js"></script>
+    <style>
+        * { box-sizing: border-box; }
+        body { margin: 0; font-family: "Microsoft YaHei", Arial, sans-serif; background: #f5f7fb; color: #1f2937; }
+        .layout { display: flex; min-height: 100vh; }
+        .sidebar { width: 250px; background: #111827; color: #fff; padding: 20px 14px; }
+        .logo { font-size: 20px; font-weight: 700; margin-bottom: 8px; }
+        .sub-logo { font-size: 12px; color: #9ca3af; margin-bottom: 20px; }
+        .menu-btn { width: 100%; border: none; background: transparent; color: #d1d5db; text-align: left; padding: 10px 12px; border-radius: 8px; margin-bottom: 8px; cursor: pointer; }
+        .menu-btn.active, .menu-btn:hover { background: #1f2937; color: #fff; }
+        .main { flex: 1; padding: 22px; display: flex; flex-direction: column; }
+        .toolbar { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-bottom: 16px; flex-wrap: wrap; }
+        .card { background: #fff; border-radius: 12px; padding: 16px; box-shadow: 0 4px 20px rgba(15, 23, 42, 0.06); margin-bottom: 16px; }
+        .hint { font-size: 13px; color: #6b7280; }
+        .row { margin-bottom: 10px; }
+        .row label { display: block; font-size: 13px; margin-bottom: 6px; color: #4b5563; }
+        .input, .select { width: 100%; border: 1px solid #d1d5db; border-radius: 8px; padding: 8px 10px; font-size: 14px; }
+        .btn { border: none; border-radius: 8px; cursor: pointer; padding: 8px 14px; font-size: 14px; }
+        .btn-primary { background: #2563eb; color: #fff; }
+        .btn-danger { background: #dc2626; color: #fff; }
+        .btn-warning { background: #f59e0b; color: #fff; }
+        .btn-ghost { background: #e5e7eb; color: #111827; }
+        .btn + .btn { margin-left: 8px; }
+        .stat-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px; }
+        .stat-card { border: 1px solid #e5e7eb; border-radius: 12px; padding: 14px; background: #fafafa; }
+        .stat-val { font-size: 26px; font-weight: 700; color: #111827; }
+        .stat-label { font-size: 13px; color: #6b7280; margin-top: 4px; }
+        .table-wrap { overflow-x: auto; }
+        table { width: 100%; border-collapse: collapse; font-size: 14px; }
+        th, td { border-bottom: 1px solid #e5e7eb; padding: 10px 8px; text-align: left; }
+        th { background: #f9fafb; color: #374151; font-weight: 600; }
+        .badge { font-size: 11px; padding: 2px 8px; border-radius: 999px; color: #fff; }
+        .badge-admin { background: #7c3aed; }
+        .badge-user { background: #6b7280; }
+        .badge-ok { background: #10b981; }
+        .badge-ban { background: #ef4444; }
+        .badge-lost { background: #ef4444; }
+        .badge-found { background: #10b981; }
+        .badge-pin { background: #f59e0b; }
+        .post-card { border: 1px solid #e5e7eb; border-radius: 12px; padding: 12px; margin-bottom: 10px; }
+        .post-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; flex-wrap: wrap; }
+        .post-title { font-weight: 700; margin: 0; }
+        .post-meta { font-size: 12px; color: #6b7280; margin-top: 6px; }
+        .empty { color: #6b7280; text-align: center; padding: 24px 0; }
+        .filter-row { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 10px; align-items: end; margin-bottom: 12px; }
+        .comment-row { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 8px 0; border-bottom: 1px solid #f3f4f6; font-size: 13px; }
+        .split { display: flex; gap: 12px; }
+        .split-left { width: 360px; max-height: 62vh; overflow-y: auto; }
+        .split-right { flex: 1; border: 1px solid #e5e7eb; border-radius: 12px; padding: 14px; background: #fafafa; min-height: 280px; }
+        .report-item { border: 1px solid #e5e7eb; border-radius: 12px; padding: 12px; background: #fff; margin-bottom: 10px; cursor: pointer; }
+        .report-item.active { border-color: #93c5fd; box-shadow: 0 2px 10px rgba(37, 99, 235, 0.12); }
+        .report-title { font-weight: 700; margin: 0; }
+        .report-meta { font-size: 12px; color: #6b7280; margin-top: 6px; }
+        .badge-pending { background: #f59e0b; }
+        .badge-done { background: #10b981; }
+        @media (max-width: 960px) {
+            .layout { flex-direction: column; }
+            .sidebar { width: 100%; }
+            .split { flex-direction: column; }
+            .split-left { width: 100%; max-height: none; }
+        }
+    </style>
+</head>
+<body>
+<div id="app" class="layout">
+    <aside class="sidebar">
+        <div class="logo">管理后台</div>
+        <div class="sub-logo">校园失物招领 · 与前台风格一致</div>
+        <button class="menu-btn" :class="{active: tab === 'overview'}" @click="tab = 'overview'">数据概览</button>
+        <button class="menu-btn" :class="{active: tab === 'users'}" @click="tab = 'users'">用户管理</button>
+        <button class="menu-btn" :class="{active: tab === 'pins'}" @click="tab = 'pins'; loadPins()">置顶审核</button>
+        <button class="menu-btn" :class="{active: tab === 'reports'}" @click="tab = 'reports'; loadReports()">举报处理</button>
+        <button class="menu-btn" :class="{active: tab === 'posts'}" @click="tab = 'posts'; loadAllPosts()">帖子管理</button>
+        <button class="menu-btn" @click="logout">退出登录</button>
+    </aside>
+
+    <main class="main">
+        <div class="toolbar">
+            <h2 style="margin:0;">{{ titles[tab] }}</h2>
+            <span class="hint">{{ globalMsg }}</span>
+        </div>
+
+        <section v-if="tab === 'overview'" class="card">
+            <p class="hint">统计接口默认统计最近 3 天活跃用户；帖子数量可按类型、状态筛选。</p>
+            <div class="filter-row">
+                <div class="row">
+                    <label>帖子类型</label>
+                    <select v-model="statsFilters.type" class="select">
+                        <option value="">全部</option>
+                        <option value="1">失物</option>
+                        <option value="2">拾取</option>
+                    </select>
+                </div>
+                <div class="row">
+                    <label>帖子状态</label>
+                    <select v-model="statsFilters.status" class="select">
+                        <option value="">全部</option>
+                        <option value="0">寻找中</option>
+                        <option value="1">已完成</option>
+                    </select>
+                </div>
+                <div class="row">
+                    <label>活跃统计开始（可选）</label>
+                    <input v-model="statsFilters.start" type="datetime-local" class="input">
+                </div>
+                <div class="row">
+                    <label>活跃统计结束（可选）</label>
+                    <input v-model="statsFilters.end" type="datetime-local" class="input">
+                </div>
+                <button class="btn btn-primary" @click="loadStats">刷新数据</button>
+            </div>
+            <div class="stat-grid" v-if="stats">
+                <div class="stat-card">
+                    <div class="stat-val">{{ stats.postCount != null ? stats.postCount : '—' }}</div>
+                    <div class="stat-label">帖子数（按筛选）</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-val">{{ stats.recoveredCount != null ? stats.recoveredCount : '—' }}</div>
+                    <div class="stat-label">已完成 / 找回</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-val">{{ stats.activeUserCount != null ? stats.activeUserCount : '—' }}</div>
+                    <div class="stat-label">区间登录用户数</div>
+                </div>
+            </div>
+            <p class="hint" v-if="stats && stats.activeStart">当前活跃区间：{{ stats.activeStart }} ~ {{ stats.activeEnd }}</p>
+        </section>
+
+        <section v-if="tab === 'users'" class="card">
+            <div class="filter-row">
+                <div class="row" style="grid-column: span 2;">
+                    <label>搜索（用户名 / 昵称 / 手机 / 邮箱）</label>
+                    <input v-model.trim="userKeyword" class="input" placeholder="输入关键词" @keyup.enter="loadUsers">
+                </div>
+                <button class="btn btn-primary" @click="loadUsers">查询</button>
+            </div>
+            <div class="table-wrap">
+                <table>
+                    <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>用户名</th>
+                        <th>昵称</th>
+                        <th>角色</th>
+                        <th>状态</th>
+                        <th>操作</th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    <tr v-for="u in users" :key="u.id">
+                        <td>{{ u.id }}</td>
+                        <td>{{ u.username }}</td>
+                        <td>{{ u.nickname || '—' }}</td>
+                        <td>
+                            <span class="badge" :class="Number(u.role) === 1 ? 'badge-admin' : 'badge-user'">
+                                {{ Number(u.role) === 1 ? '管理员' : '学生' }}
+                            </span>
+                        </td>
+                        <td>
+                            <span class="badge" :class="Number(u.status) === 0 ? 'badge-ok' : 'badge-ban'">
+                                {{ Number(u.status) === 0 ? '正常' : '封禁' }}
+                            </span>
+                        </td>
+                        <td>
+                            <button v-if="Number(u.status) === 0 && Number(u.role) !== 1" class="btn btn-danger" @click="banUser(u.id)">封禁</button>
+                            <button v-if="Number(u.status) === 1 && Number(u.role) !== 1" class="btn btn-ghost" @click="unbanUser(u.id)">解封</button>
+                            <span v-if="Number(u.role) === 1" class="hint">—</span>
+                        </td>
+                    </tr>
+                    </tbody>
+                </table>
+                <div v-if="users.length === 0" class="empty">暂无用户数据</div>
+            </div>
+        </section>
+
+        <section v-if="tab === 'pins'" class="card">
+            <button class="btn btn-primary" @click="loadPins">刷新待审核</button>
+            <div style="margin-top: 14px;">
+                <div class="post-card" v-for="p in pinRequests" :key="p.id">
+                    <div class="post-head">
+                        <div>
+                            <p class="post-title">{{ p.itemName || '未命名' }}</p>
+                            <div class="post-meta">
+                                发布者：{{ p.userNickname || ('用户' + p.userId) }} ｜ 地点：{{ p.location || '—' }} ｜
+                                时间：{{ formatTime(p.eventTime || p.createTime) }}
+                            </div>
+                        </div>
+                        <span class="badge badge-pin">待审核置顶</span>
+                    </div>
+                    <div class="post-meta">{{ (p.description || '').slice(0, 120) }}{{ (p.description || '').length > 120 ? '…' : '' }}</div>
+                    <div style="margin-top: 10px;">
+                        <button class="btn btn-primary" @click="approvePin(p.id)">通过</button>
+                        <button class="btn btn-ghost" @click="rejectPin(p.id)">驳回</button>
+                    </div>
+                </div>
+                <div v-if="pinRequests.length === 0" class="empty">暂无置顶申请</div>
+            </div>
+        </section>
+
+        <section v-if="tab === 'reports'" class="card">
+            <div class="filter-row">
+                <div class="row">
+                    <label>处理状态</label>
+                    <select v-model="reportFilters.status" class="select">
+                        <option value="">全部</option>
+                        <option value="0">待处理</option>
+                        <option value="1">已处理</option>
+                    </select>
+                </div>
+                <button class="btn btn-primary" @click="loadReports">刷新举报</button>
+            </div>
+
+            <div class="split" style="margin-top: 10px;">
+                <div class="split-left">
+                    <div class="report-item"
+                         v-for="r in reports"
+                         :key="'rep-' + r.id"
+                         :class="{active: selectedReport && selectedReport.id === r.id}"
+                         @click="selectReport(r)">
+                        <div style="display:flex;justify-content:space-between;gap:10px;align-items:flex-start;">
+                            <div style="min-width:0;">
+                                <p class="report-title">#{{ r.id }} 举报帖子 {{ r.postId }}</p>
+                                <div class="report-meta">
+                                    举报人：{{ r.reporterName || ('用户' + r.reporterId) }}
+                                </div>
+                                <div class="report-meta">
+                                    物品：{{ r.postItemName || '—' }}
+                                </div>
+                            </div>
+                            <span class="badge" :class="Number(r.status) === 0 ? 'badge-pending' : 'badge-done'">
+                                {{ Number(r.status) === 0 ? '待处理' : '已处理' }}
+                            </span>
+                        </div>
+                    </div>
+                    <div v-if="reports.length === 0" class="empty">暂无举报</div>
+                </div>
+
+                <div class="split-right">
+                    <div v-if="!selectedReport" class="empty" style="padding: 40px 0;">请在左侧选择一条举报</div>
+                    <div v-else>
+                        <div style="display:flex;justify-content:space-between;gap:10px;align-items:flex-start;">
+                            <div>
+                                <h3 style="margin:0;">举报详情 #{{ selectedReport.id }}</h3>
+                                <div class="hint" style="margin-top: 6px;">
+                                    举报人：{{ selectedReport.reporterName || ('用户' + selectedReport.reporterId) }} ｜ 帖子ID：{{ selectedReport.postId }}
+                                </div>
+                            </div>
+                            <span class="badge" :class="Number(selectedReport.status) === 0 ? 'badge-pending' : 'badge-done'">
+                                {{ Number(selectedReport.status) === 0 ? '待处理' : '已处理' }}
+                            </span>
+                        </div>
+
+                        <div class="card" style="margin-top: 12px; background:#fff;">
+                            <div class="row">
+                                <label>举报原因</label>
+                                <div class="hint" style="white-space: pre-wrap;">{{ selectedReport.reason || '—' }}</div>
+                            </div>
+                        </div>
+
+                        <div class="card" style="margin-top: 12px; background:#fff;">
+                            <div class="row">
+                                <label>帖子信息</label>
+                                <div class="hint">
+                                    名称：{{ selectedReport.postItemName || '（帖子可能已删除）' }}
+                                </div>
+                                <div class="hint">
+                                    类型：{{ Number(selectedReport.postType) === 1 ? '失物' : (Number(selectedReport.postType) === 2 ? '拾取' : '—') }}
+                                    ｜ 状态：{{ Number(selectedReport.postStatus) === 0 ? '寻找中' : (Number(selectedReport.postStatus) === 1 ? '已完成' : '—') }}
+                                    ｜ 置顶：{{ Number(selectedReport.postPinned) === 2 ? '已置顶' : (Number(selectedReport.postPinned) === 1 ? '申请中' : '普通') }}
+                                </div>
+                                <div class="hint">
+                                    地点：{{ selectedReport.postLocation || '—' }}
+                                </div>
+                                <div class="hint">
+                                    时间：{{ formatTime(selectedReport.postEventTime || selectedReport.postCreateTime) }}
+                                </div>
+                            </div>
+                        </div>
+
+                        <div style="margin-top: 12px;">
+                            <button v-if="Number(selectedReport.status) === 0" class="btn btn-primary" @click="processReport(selectedReport)">标记已处理</button>
+                            <button v-if="selectedReport.postItemName" class="btn btn-danger" @click="deletePostFromReport(selectedReport)">删帖并处理</button>
+                            <button class="btn btn-ghost" @click="selectedReport = null">取消选择</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section v-if="tab === 'posts'" class="card">
+            <button class="btn btn-primary" @click="loadAllPosts">刷新帖子列表</button>
+            <p class="hint" style="margin-top:10px;">帖子数据来自学生接口浏览；删除走管理员接口并级联清理评论与举报记录。</p>
+            <div style="margin-top: 14px;">
+                <div class="post-card" v-for="p in allPosts" :key="'a-' + p.id">
+                    <div class="post-head">
+                        <div>
+                            <p class="post-title">{{ p.itemName }}</p>
+                            <div class="post-meta">
+                                <span class="badge" :class="p.type === 1 ? 'badge-lost' : 'badge-found'">{{ p.type === 1 ? '失物' : '拾取' }}</span>
+                                ID：{{ p.id }} ｜ 发布者 userId：{{ p.userId }} ｜ {{ formatTime(p.eventTime || p.createTime) }}
+                            </div>
+                        </div>
+                        <div>
+                            <button class="btn btn-ghost" @click="toggleComments(p)">{{ expandedId === p.id ? '收起评论' : '评论管理' }}</button>
+                            <button class="btn btn-danger" @click="deletePost(p.id)">删帖</button>
+                        </div>
+                    </div>
+                    <div v-if="expandedId === p.id" style="margin-top: 12px; padding-top: 12px; border-top: 1px solid #e5e7eb;">
+                        <button class="btn btn-ghost" @click="loadCommentsFor(p.id)">刷新评论</button>
+                        <div v-for="c in comments" :key="c.id" class="comment-row">
+                            <div>
+                                <strong>#{{ c.id }}</strong> {{ c.senderName || ('用户' + c.senderId) }}：{{ c.content }}
+                                <span class="hint"> · {{ formatTime(c.createTime) }}</span>
+                            </div>
+                            <button class="btn btn-danger" @click="deleteComment(c.id, p.id)">删评论</button>
+                        </div>
+                        <div v-if="comments.length === 0" class="empty" style="padding:12px;">暂无评论</div>
+                    </div>
+                </div>
+                <div v-if="allPosts.length === 0" class="empty">暂无帖子</div>
+            </div>
+        </section>
+    </main>
+</div>
+
+<script>
+    const { createApp, ref, onMounted } = Vue;
+
+    createApp({
+        setup() {
+            const tab = ref('overview');
+            const globalMsg = ref('');
+            const titles = {
+                overview: '数据概览',
+                users: '用户管理',
+                pins: '置顶审核',
+                reports: '举报处理',
+                posts: '帖子管理'
+            };
+
+            const stats = ref(null);
+            const statsFilters = ref({ type: '', status: '', start: '', end: '' });
+
+            const users = ref([]);
+            const userKeyword = ref('');
+
+            const pinRequests = ref([]);
+
+            const allPosts = ref([]);
+            const expandedId = ref(null);
+            const comments = ref([]);
+            const reports = ref([]);
+            const reportFilters = ref({ status: '' });
+            const selectedReport = ref(null);
+
+            async function safeRequest(url, method, data, config) {
+                const resp = await window.httpClient.request(url, method, data, config);
+                if (!resp || resp.code !== 200) {
+                    throw new Error((resp && resp.msg) || '请求失败');
+                }
+                return resp.data;
+            }
+
+            function statsParams() {
+                const p = {};
+                if (statsFilters.value.type !== '') p.type = Number(statsFilters.value.type);
+                if (statsFilters.value.status !== '') p.status = Number(statsFilters.value.status);
+                if (statsFilters.value.start) p.start = statsFilters.value.start;
+                if (statsFilters.value.end) p.end = statsFilters.value.end;
+                return p;
+            }
+
+            async function loadStats() {
+                try {
+                    stats.value = await safeRequest('/ManaItems/stats', 'GET', null, { params: statsParams() });
+                    globalMsg.value = '统计已更新';
+                } catch (e) {
+                    globalMsg.value = '加载失败：' + e.message;
+                }
+            }
+
+            async function loadUsers() {
+                try {
+                    const kw = userKeyword.value.trim();
+                    const params = kw ? { keyword: kw } : {};
+                    users.value = await safeRequest('/ManaItems/users', 'GET', null, { params }) || [];
+                    globalMsg.value = '用户列表已更新';
+                } catch (e) {
+                    globalMsg.value = '用户加载失败：' + e.message;
+                }
+            }
+
+            async function banUser(userId) {
+                if (!confirm('确定封禁该用户？')) return;
+                try {
+                    await safeRequest('/ManaItems/users/' + encodeURIComponent(userId) + '/ban', 'PATCH');
+                    globalMsg.value = '已封禁';
+                    await loadUsers();
+                } catch (e) {
+                    globalMsg.value = e.message;
+                }
+            }
+
+            async function unbanUser(userId) {
+                try {
+                    await safeRequest('/ManaItems/users/' + encodeURIComponent(userId) + '/unban', 'PATCH');
+                    globalMsg.value = '已解封';
+                    await loadUsers();
+                } catch (e) {
+                    globalMsg.value = e.message;
+                }
+            }
+
+            async function loadPins() {
+                try {
+                    pinRequests.value = await safeRequest('/ManaItems/pins/requests', 'GET') || [];
+                    globalMsg.value = '置顶列表已更新';
+                } catch (e) {
+                    globalMsg.value = '置顶加载失败：' + e.message;
+                }
+            }
+
+            async function approvePin(postId) {
+                try {
+                    await safeRequest('/ManaItems/pins/' + encodeURIComponent(postId) + '/approve', 'PATCH');
+                    globalMsg.value = '已通过置顶';
+                    await loadPins();
+                } catch (e) {
+                    globalMsg.value = e.message;
+                }
+            }
+
+            async function rejectPin(postId) {
+                try {
+                    await safeRequest('/ManaItems/pins/' + encodeURIComponent(postId) + '/reject', 'PATCH');
+                    globalMsg.value = '已驳回';
+                    await loadPins();
+                } catch (e) {
+                    globalMsg.value = e.message;
+                }
+            }
+
+            async function loadAllPosts() {
+                try {
+                    const lost = await safeRequest('/StuItems/selectByType?type=1', 'GET') || [];
+                    const found = await safeRequest('/StuItems/selectByType?type=2', 'GET') || [];
+                    const merged = lost.concat(found);
+                    merged.sort(function (a, b) {
+                        const ta = new Date(a.createTime || 0).getTime();
+                        const tb = new Date(b.createTime || 0).getTime();
+                        return tb - ta;
+                    });
+                    allPosts.value = merged;
+                    globalMsg.value = '帖子列表已更新';
+                } catch (e) {
+                    globalMsg.value = '帖子加载失败：' + e.message;
+                }
+            }
+
+            async function toggleComments(p) {
+                if (expandedId.value === p.id) {
+                    expandedId.value = null;
+                    comments.value = [];
+                    return;
+                }
+                expandedId.value = p.id;
+                await loadCommentsFor(p.id);
+            }
+
+            async function loadCommentsFor(postId) {
+                try {
+                    comments.value = await safeRequest('/message/comments/' + encodeURIComponent(postId), 'GET') || [];
+                } catch (e) {
+                    globalMsg.value = '评论加载失败：' + e.message;
+                    comments.value = [];
+                }
+            }
+
+            async function deletePost(postId) {
+                if (!confirm('确定删除该帖子？将同时删除其评论与举报记录。')) return;
+                try {
+                    await safeRequest('/ManaItems/posts/' + encodeURIComponent(postId), 'DELETE');
+                    globalMsg.value = '帖子已删除';
+                    if (expandedId.value === postId) {
+                        expandedId.value = null;
+                        comments.value = [];
+                    }
+                    await loadAllPosts();
+                } catch (e) {
+                    globalMsg.value = e.message;
+                }
+            }
+
+            async function deleteComment(commentId, postId) {
+                if (!confirm('确定删除该条评论？')) return;
+                try {
+                    await safeRequest('/ManaItems/comments/' + encodeURIComponent(commentId), 'DELETE');
+                    globalMsg.value = '评论已删除';
+                    if (expandedId.value === postId) await loadCommentsFor(postId);
+                } catch (e) {
+                    globalMsg.value = e.message;
+                }
+            }
+
+            async function loadReports() {
+                try {
+                    const params = {};
+                    if (reportFilters.value.status !== '') {
+                        params.status = Number(reportFilters.value.status);
+                    }
+                    reports.value = await safeRequest('/ManaItems/reports', 'GET', null, { params }) || [];
+                    if (selectedReport.value) {
+                        const next = reports.value.find(x => x.id === selectedReport.value.id);
+                        selectedReport.value = next || null;
+                    }
+                    globalMsg.value = '举报列表已更新';
+                } catch (e) {
+                    globalMsg.value = '举报加载失败：' + e.message;
+                    reports.value = [];
+                }
+            }
+
+            function selectReport(r) {
+                selectedReport.value = r;
+            }
+
+            async function processReport(r) {
+                if (!r || !r.id) return;
+                try {
+                    await safeRequest('/ManaItems/reports/' + encodeURIComponent(r.id) + '/process', 'PATCH');
+                    globalMsg.value = '已标记处理';
+                    await loadReports();
+                } catch (e) {
+                    globalMsg.value = e.message;
+                }
+            }
+
+            async function deletePostFromReport(r) {
+                if (!r || !r.postId) return;
+                if (!confirm('确定删除该帖子并标记举报已处理？')) return;
+                try {
+                    await safeRequest('/ManaItems/posts/' + encodeURIComponent(r.postId), 'DELETE');
+                    await safeRequest('/ManaItems/reports/' + encodeURIComponent(r.id) + '/process', 'PATCH');
+                    globalMsg.value = '删帖并处理完成';
+                    selectedReport.value = null;
+                    await loadReports();
+                    if (tab.value === 'posts') {
+                        await loadAllPosts();
+                    }
+                } catch (e) {
+                    globalMsg.value = e.message;
+                }
+            }
+
+            function formatTime(v) {
+                if (!v) return '—';
+                const d = new Date(v);
+                if (isNaN(d.getTime())) return String(v);
+                const y = d.getFullYear();
+                const m = String(d.getMonth() + 1).padStart(2, '0');
+                const day = String(d.getDate()).padStart(2, '0');
+                const hh = String(d.getHours()).padStart(2, '0');
+                const mm = String(d.getMinutes()).padStart(2, '0');
+                return y + '-' + m + '-' + day + ' ' + hh + ':' + mm;
+            }
+
+            function logout() {
+                sessionStorage.removeItem('token');
+                sessionStorage.removeItem('userRole');
+                window.location.href = 'login.html';
+            }
+
+            onMounted(function () {
+                if (sessionStorage.getItem('userRole') !== '1') {
+                    window.location.href = 'index.html';
+                    return;
+                }
+                loadStats();
+                loadUsers();
+            });
+
+            return {
+                tab, globalMsg, titles,
+                stats, statsFilters, loadStats,
+                users, userKeyword, loadUsers, banUser, unbanUser,
+                pinRequests, loadPins, approvePin, rejectPin,
+                reports, reportFilters, selectedReport, loadReports, selectReport, processReport, deletePostFromReport,
+                allPosts, expandedId, comments, loadAllPosts, toggleComments, loadCommentsFor, deletePost, deleteComment,
+                formatTime, logout
+            };
+        }
+    }).mount('#app');
+</script>
+</body>
+</html>

@@ -71,6 +71,10 @@ public class UserServiceImpl implements UserService {
             throw new IllegalArgumentException("账号不存在");
         }
 
+        if (Integer.valueOf(1).equals(user.getStatus())) {
+            throw new IllegalArgumentException("您已被封禁");
+        }
+
         // 使用BCrypt校验密码
         if (!passwordEncoder.matches(password, user.getPassword())) {
             throw new IllegalArgumentException("密码错误");

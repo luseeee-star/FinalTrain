@@ -26,9 +26,17 @@ public class LoginInterceptor implements HandlerInterceptor {
         String token = request.getHeader("Authorization");
         try {
             Map<String,Object> claims = JwtUtil.verifyToken(token);
-            String userid = (String) claims.get("userid");
-            Integer role = (Integer) claims.get("status");
-            log.info("用户 {} (角色: {}) 认证成功, 访问路径: {}", userid, role == 0 ? "学生" : "维修人员", request.getRequestURI());
+            String userid = String.valueOf(claims.get("userid"));
+            Object statusObj = claims.get("status");
+            int status = statusObj == null ? 0 : Integer.parseInt(String.valueOf(statusObj));
+            if (status == 1) {
+                log.warn("用户 {} 已被封禁, 访问路径: {}", userid, request.getRequestURI());
+                response.setStatus(403);
+                return false;
+            }
+            Object roleObj = claims.get("role");
+            int role = roleObj == null ? 0 : Integer.parseInt(String.valueOf(roleObj));
+            log.info("用户 {} (角色: {}) 认证成功, 访问路径: {}", userid, role == 1 ? "管理员" : "学生", request.getRequestURI());
             //把业务数据存放到线程里
             ThreadLocalUtil.set(claims);
             return  true;

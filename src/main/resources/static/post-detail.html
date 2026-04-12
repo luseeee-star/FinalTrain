@@ -91,15 +91,13 @@
 
             function parseUserIdFromToken() {
                 try {
-                    const token = localStorage.getItem('token');
+                    const token = sessionStorage.getItem('token');
                     if (!token) return null;
-                    const payloadPart = token.split('.')[1] || '';
-                    if (!payloadPart) return null;
-                    const base64 = payloadPart.replace(/-/g, '+').replace(/_/g, '/');
-                    const padded = base64 + '='.repeat((4 - base64.length % 4) % 4);
-                    const payload = JSON.parse(atob(padded));
-                    const claims = payload && payload.claims ? payload.claims : {};
-                    return claims.userid ? Number(claims.userid) : null;
+                    const parts = token.split('.');
+                    if (parts.length < 2) return null;
+                    const payload = JSON.parse(atob(parts[1].replace(/-/g, '+').replace(/_/g, '/')));
+                    const uid = payload.userid || (payload.claims && payload.claims.userid);
+                    return uid ? Number(uid) : null;
                 } catch (e) {
                     return null;
                 }
@@ -141,7 +139,7 @@
             }
 
             function initWs() {
-                const token = localStorage.getItem('token');
+                const token = sessionStorage.getItem('token');
                 if (!token) return;
                 const ws = new WebSocket('ws://localhost:8080/chat?token=' + encodeURIComponent(token));
                 ws.onmessage = function (evt) {
@@ -177,7 +175,7 @@
             }
 
             function backToHome() {
-                window.location.href = 'index.html';
+                window.location.href = sessionStorage.getItem('userRole') === '1' ? 'admin-index.html' : 'index.html';
             }
 
             function goPrivateChat(friendId, name) {
