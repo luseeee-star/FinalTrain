@@ -17,9 +17,7 @@ public class EmailUtil {
     @Value("${spring.mail.username}")
     private String fromEmail;
 
-    /**
-     * 生成6位数字验证码
-     */
+    //生成6位数字验证码
     public String generateCode() {
         Random random = new Random();
         StringBuilder code = new StringBuilder();
@@ -42,7 +40,7 @@ public class EmailUtil {
         
         String subject;
         String content;
-        
+
         switch (type) {
             case "register":
                 subject = "【失物招领平台】注册验证码";
@@ -60,7 +58,7 @@ public class EmailUtil {
                 subject = "【失物招领平台】验证码";
                 content = "您好！\n\n您的验证码是：" + code + "\n\n验证码5分钟内有效。";
         }
-        
+
         message.setSubject(subject);
         message.setText(content);
         mailSender.send(message);

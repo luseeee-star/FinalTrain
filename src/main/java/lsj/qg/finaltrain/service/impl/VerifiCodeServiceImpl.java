@@ -20,7 +20,9 @@ public class VerifiCodeServiceImpl implements VerifiCodeService {
     
     // 发送间隔：60秒（毫秒）
     private static final long SEND_INTERVAL = 60 * 1000;
-    
+
+
+    //为了安全性和专业规范，定义一个内部类来存储验证码信息
     private static class CodeInfo {
         String code;
         long expireTime;
