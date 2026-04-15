@@ -1,6 +1,7 @@
 package lsj.qg.finaltrain.service;
 
 import lsj.qg.finaltrain.pojo.ItemPost;
+import reactor.core.publisher.Flux;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -32,4 +33,6 @@ public interface ManaService {
     void approvePin(Long adminId, Long postId);
 
     void rejectPin(Long adminId, Long postId);
+
+    Flux<String> AiAnalyze();
 }

@@ -62,8 +62,13 @@ public class MessageServiceImpl implements MessageService {
                 new LambdaQueryWrapper<Message>()
                         .eq(Message::getType, 2) // 过滤私聊类型
                         // 核心逻辑：查询 (我发给TA) 或者 (TA发给我) 的所有消息
-                        .and(w -> w.nested(x -> x.eq(Message::getSenderId, userid).eq(Message::getReceiverId, friendId))
-                                   .or(x -> x.eq(Message::getSenderId, friendId).eq(Message::getReceiverId, userid)))
+                        .and(w -> w
+                                .nested(x -> x
+                                        .eq(Message::getSenderId, userid)
+                                        .eq(Message::getReceiverId, friendId))
+                                   .or(x -> x
+                                           .eq(Message::getSenderId, friendId)
+                                           .eq(Message::getReceiverId, userid)))
                         .orderByAsc(Message::getCreateTime) // 按时间正序排列，确保对话逻辑连贯
         );
     }
@@ -144,9 +149,8 @@ public class MessageServiceImpl implements MessageService {
         return new ArrayList<>(sessions.values());
     }
 
-    /**
-     * 删除与某个联系人的所有会话记录
-     */
+    //删除与某个联系人的所有会话记录
+
     @Override
     public void deleteSession(Long userId, Long friendId) {
         if (userId == null || friendId == null) {
@@ -166,9 +170,7 @@ public class MessageServiceImpl implements MessageService {
         );
     }
 
-    /**
-     * 辅助方法：获取用户的显示名称（优先昵称，其次用户名）
-     */
+    //获取用户的显示名称（优先昵称，其次用户名）
     private String getDisplayName(User user, Long userId) {
         if (user == null) return "用户" + userId;
         if (user.getNickname() != null && !user.getNickname().trim().isEmpty()) {

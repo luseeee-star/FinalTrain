@@ -3,7 +3,7 @@ package lsj.qg.finaltrain.controller;
 import lsj.qg.finaltrain.mapper.UserMapper;
 import lsj.qg.finaltrain.pojo.Message;
 import lsj.qg.finaltrain.pojo.User;
-import lsj.qg.finaltrain.service.impl.MessageServiceImpl;
+import lsj.qg.finaltrain.service.MessageService;
 import lsj.qg.finaltrain.utils.ResultJson;
 import lsj.qg.finaltrain.utils.ThreadLocalUtil;
 import org.slf4j.Logger;
@@ -21,7 +21,7 @@ public class MessageController {
     private static final Logger log = LoggerFactory.getLogger(MessageController.class);
 
     @Autowired
-    private MessageServiceImpl messageServiceImpl;
+    private MessageService messageService;
 
     @Autowired
     private UserMapper userMapper;
@@ -29,7 +29,7 @@ public class MessageController {
     // 获取某个帖子的评论列表 (type=1)
     @GetMapping("/comments/{postId}")
     public ResultJson<List<Message>> getComments(@PathVariable Long postId) {
-        List<Message> list = messageServiceImpl.getCommentsByPostId(postId);
+        List<Message> list = messageService.getCommentsByPostId(postId);
         enrichMessageUserInfo(list);
         return ResultJson.success(list);
     }
@@ -40,7 +40,7 @@ public class MessageController {
         Map<String,Object> map = ThreadLocalUtil.get();
         Long userid = Long.parseLong(String.valueOf(map.get("userid")));
         log.info("正在查询历史消息: userid={}, friendId={}", userid, friendId);
-        List<Message> list = messageServiceImpl.getHistory(userid, friendId);
+        List<Message> list = messageService.getHistory(userid, friendId);
         log.info("查询到历史消息数量: {}", (list != null ? list.size() : 0));
         enrichMessageUserInfo(list);
         return ResultJson.success(list);
@@ -52,7 +52,7 @@ public class MessageController {
         Map<String,Object> map = ThreadLocalUtil.get();
         Object uidObj = map.get("userid");
         Long userid = Long.parseLong(String.valueOf(uidObj));
-        return ResultJson.success(messageServiceImpl.countUnread(userid));
+        return ResultJson.success(messageService.countUnread(userid));
     }
 
     // 获取聊天会话列表 (type=2)
@@ -61,7 +61,7 @@ public class MessageController {
         Map<String, Object> map = ThreadLocalUtil.get();
         Object uidObj = map.get("userid");
         Long userid = Long.parseLong(String.valueOf(uidObj));
-        List<Map<String, Object>> list = messageServiceImpl.getChatSessions(userid);
+        List<Map<String, Object>> list = messageService.getChatSessions(userid);
         return ResultJson.success(list);
     }
 
@@ -71,7 +71,7 @@ public class MessageController {
         Map<String, Object> map = ThreadLocalUtil.get();
         Object uidObj = map.get("userid");
         Long userid = Long.parseLong(String.valueOf(uidObj));
-        messageServiceImpl.deleteSession(userid, friendId);
+        messageService.deleteSession(userid, friendId);
         log.info("用户 {} 删除了与 {} 的所有聊天记录", userid, friendId);
         return ResultJson.success("删除成功");
     }

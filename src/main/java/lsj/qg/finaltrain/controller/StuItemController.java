@@ -1,5 +1,6 @@
 package lsj.qg.finaltrain.controller;
 
+import lsj.qg.finaltrain.mapper.ItemMapper;
 import lsj.qg.finaltrain.mapper.UserMapper;
 import lsj.qg.finaltrain.pojo.ItemPost;
 import lsj.qg.finaltrain.pojo.Report;
@@ -8,8 +9,10 @@ import lsj.qg.finaltrain.service.ItemService;
 import lsj.qg.finaltrain.utils.ResultJson;
 import lsj.qg.finaltrain.utils.ThreadLocalUtil;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
+import reactor.core.publisher.Flux;
 
 import java.io.File;
 import java.time.LocalDateTime;
@@ -28,6 +31,10 @@ public class StuItemController {
 
     @Autowired
     private UserMapper userMapper;
+
+    @Autowired
+    private ItemMapper itemMapper;
+
 
     @PostMapping("/insertItem")
     public ResultJson<String> insertItem(
@@ -49,6 +56,7 @@ public class StuItemController {
                 // 将文件随机命名
                 String fileName = UUID.randomUUID() + ext;
                 File dir = new File(IMAGE_DIR);
+                //如果没有文件夹就创建
                 if (!dir.exists()) {
                     dir.mkdirs();
                 }
@@ -71,11 +79,20 @@ public class StuItemController {
             itemPost.setIsPinned(form.get("isPinned") == null ? 0 : Integer.parseInt(form.get("isPinned")));
             itemPost.setImageUrl(imageUrl);
 
-            itemService.InsertItem(itemPost);
+            itemService.InsertItem(itemPost,userid);
             return ResultJson.success("添加成功");
         } catch (Exception e) {
             return ResultJson.error(e.getMessage());
         }
+    }
+
+     // 生成 AI 描述
+     //前端在用户未提交表单时调用，用于实时预览。          告诉前端是流式输出
+    @PostMapping(value = "/ai/preview", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+    public Flux<String> CreateAiDescription(@RequestBody ItemPost itemPost) {
+        Map<String, String> map = ThreadLocalUtil.get();
+        Long userId = (long) Integer.parseInt(map.get("userid"));
+        return itemService.AIdescription(itemPost, userId);
     }
 
     @GetMapping("/selectByType")
@@ -149,6 +166,16 @@ public class StuItemController {
         try {
             itemService.DeleteItem(postId);
             return ResultJson.success("删除成功");
+        } catch (Exception e) {
+            return ResultJson.error(e.getMessage());
+        }
+    }
+
+    @PatchMapping("/updateFound/{postId}")
+    public ResultJson<String> updateFound(@PathVariable Long postId) {
+        try {
+            itemService.SetFound(postId);
+            return ResultJson.success("发送申请成功");
         } catch (Exception e) {
             return ResultJson.error(e.getMessage());
         }

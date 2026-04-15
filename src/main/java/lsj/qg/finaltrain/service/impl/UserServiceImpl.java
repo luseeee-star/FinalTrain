@@ -1,6 +1,7 @@
 package lsj.qg.finaltrain.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import lsj.qg.finaltrain.mapper.UserMapper;
 import lsj.qg.finaltrain.pojo.User;
 import lsj.qg.finaltrain.service.UserService;
@@ -79,6 +80,10 @@ public class UserServiceImpl implements UserService {
         if (!passwordEncoder.matches(password, user.getPassword())) {
             throw new IllegalArgumentException("密码错误");
         }
+        //更新的话要么新创建user对象把要更新的东西传入user中，要么就用null然后更新内容和查询条件放在第二个
+        userMapper.update(null,new LambdaUpdateWrapper<User>()
+                    .set(User::getLastLoginTime, LocalDateTime.now())
+                    .eq(User::getId, user.getId()));
         return user;
     }
 }

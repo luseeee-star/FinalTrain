@@ -10,6 +10,12 @@ spring:
     multipart:
       max-file-size: 10MB
       max-request-size: 10MB
+  ai:
+    dashscope:
+      api-key: sk-e323695fe67a43de87bf702c3f36bd28
+      chat:
+        options:
+          model: qwen-plus
 
 mybatis-plus:
   configuration:

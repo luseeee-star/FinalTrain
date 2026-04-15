@@ -3,7 +3,7 @@ package lsj.qg.finaltrain.controller;
 import jakarta.servlet.http.HttpSession;
 import lsj.qg.finaltrain.mapper.UserMapper;
 import lsj.qg.finaltrain.pojo.User;
-import lsj.qg.finaltrain.service.impl.UserServiceImpl;
+import lsj.qg.finaltrain.service.UserService;
 import lsj.qg.finaltrain.utils.JwtUtil;
 import lsj.qg.finaltrain.utils.ResultJson;
 import lsj.qg.finaltrain.utils.ThreadLocalUtil;
@@ -26,7 +26,7 @@ public class UserController {
     private UserMapper userMapper;
 
     @Autowired
-    private UserServiceImpl userServiceImpl;
+    private UserService userService;
 
     @Autowired
     private JwtUtil jwtUtil;
@@ -47,7 +47,7 @@ public class UserController {
             user.setEmail(email);
             user.setPhone(phone);
 
-            userServiceImpl.register(user, confirmPassword);
+            userService.register(user, confirmPassword);
             return ResultJson.success("注册成功");
         } catch (IllegalArgumentException e) {
             return ResultJson.error(e.getMessage());
@@ -63,7 +63,7 @@ public class UserController {
             String account = request.get("account");
             String password = request.get("password");
 
-            User user = userServiceImpl.login(account, password);
+            User user = userService.login(account, password);
 
             // 生成token
             Map<String, Object> claims = new HashMap<>();

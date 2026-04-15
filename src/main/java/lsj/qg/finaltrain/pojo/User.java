@@ -1,6 +1,7 @@
 package lsj.qg.finaltrain.pojo;
 
 import com.baomidou.mybatisplus.annotation.*;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import lombok.Data;
 import java.time.LocalDateTime;
 
@@ -12,6 +13,7 @@ public class User {
 
     private String username;
 
+    @JsonIgnore // 不要在API响应中暴露密码
     private String password; // 记住：存储时要加密
 
     private String nickname; // 展示名称

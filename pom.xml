@@ -28,13 +28,50 @@
     </scm>
     <properties>
         <java.version>21</java.version>
+        <spring-ai.version>1.0.0-M6</spring-ai.version>
+        <spring-ai-alibaba.version>1.0.0-M6.1</spring-ai-alibaba.version>
     </properties>
-    <dependencies>
 
+
+    <dependencies>
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-actuator</artifactId>
         </dependency>
+
+        <!--引入 Spring AI Alibaba-->
+        <dependency>
+            <groupId>com.alibaba.cloud.ai</groupId>
+            <artifactId>spring-ai-alibaba-starter</artifactId>
+            <version>${spring-ai-alibaba.version}</version>
+            <exclusions>
+                <!-- 排除那个特殊的 Nacos 配置包 -->
+                <exclusion>
+                    <groupId>com.alibaba.cloud</groupId>
+                    <artifactId>spring-alibaba-nacos-config</artifactId>
+                </exclusion>
+                <!-- 顺便把 Nacos Discovery 也排除了，防止后续麻烦 -->
+                <exclusion>
+                    <groupId>com.alibaba.cloud</groupId>
+                    <artifactId>spring-cloud-starter-alibaba-nacos-discovery</artifactId>
+                </exclusion>
+                <!-- 排除 Nacos 客户端核心 -->
+                <exclusion>
+                    <groupId>com.alibaba.nacos</groupId>
+                    <artifactId>nacos-client</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+
+
+        <!--引入 swagger-->
+        <dependency>
+            <groupId>org.springdoc</groupId>
+            <artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
+            <version>2.8.0</version> <!-- 与 Spring Boot 3.x 兼容 -->
+        </dependency>
+
+
 
         <!-- MyBatis-Plus 起步依赖-->
         <dependency>
@@ -101,5 +138,19 @@
             </plugin>
         </plugins>
     </build>
-
+    <repositories>
+        <repository>
+            <id>spring-milestones</id>
+            <name>Spring Milestones</name>
+            <url>https://repo.spring.io/milestone</url>
+            <snapshots>
+                <enabled>false</enabled>
+            </snapshots>
+        </repository>
+        <repository>
+            <id>alibaba-milestones</id>
+            <name>Alibaba Milestones</name>
+            <url>https://maven.aliyun.com/repository/spring-milestones</url>
+        </repository>
+    </repositories>
 </project>

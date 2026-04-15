@@ -5,6 +5,7 @@ import lsj.qg.finaltrain.service.ManaService;
 import lsj.qg.finaltrain.utils.ResultJson;
 import lsj.qg.finaltrain.utils.ThreadLocalUtil;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -13,6 +14,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import reactor.core.publisher.Flux;
 
 import java.time.LocalDateTime;
 import java.util.HashMap;
@@ -172,6 +174,11 @@ public class ManaController {
         } catch (Exception e) {
             return ResultJson.error(e.getMessage());
         }
+    }
+
+    @GetMapping(value = "/AiAnalyze", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+    public Flux<String> AiAnalyze() {
+        return manaService.AiAnalyze();
     }
 
     // 从ThreadLocal中获取当前用户ID

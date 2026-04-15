@@ -29,6 +29,8 @@
         .btn-warning { background: #f59e0b; color: #fff; }
         .btn-ghost { background: #e5e7eb; color: #111827; }
         .btn + .btn { margin-left: 8px; }
+        .desc-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+        .desc-actions { margin-top: 8px; display: flex; justify-content: flex-end; }
         .posts { display: grid; gap: 12px; }
         .post-card { border: 1px solid #e5e7eb; border-radius: 12px; padding: 14px; background: #fff; cursor: pointer; }
         .post-card:hover { border-color: #93c5fd; }
@@ -102,7 +104,7 @@
         .bubble-other .bubble-content { background: #e5e7eb; color: #1f2937; border-bottom-left-radius: 2px; }
         .bubble-time { font-size: 11px; color: #9ca3af; margin-bottom: 4px; }
 
-        .top-controls { display: grid; grid-template-columns: 1fr 1fr 170px 100px; gap: 10px; }
+        .top-controls { display: grid; grid-template-columns: 1fr 1fr 1fr 100px; gap: 10px; }
 
         /* 侧边栏消息中心红点样式 */
         .sidebar-msg-btn { position: relative; display: flex; align-items: center; justify-content: space-between; }
@@ -221,7 +223,20 @@
             </div>
             <div class="row">
                 <label>物品描述</label>
-                <textarea v-model.trim="createForm.description" class="textarea" placeholder="请补充外观、特征等信息"></textarea>
+                <div class="desc-grid">
+                    <div>
+                        <label style="margin-top:0;">人工描述</label>
+                        <textarea v-model.trim="createForm.description" class="textarea" placeholder="请补充外观、特征等信息"></textarea>
+                    </div>
+                    <div>
+                        <label style="margin-top:0;">AI 描述</label>
+                        <textarea v-model.trim="createForm.aiDescription" class="textarea" placeholder="发布后自动生成（或由后端返回）" readonly></textarea>
+                        <div class="desc-actions">
+                            <button class="btn btn-primary" @click="generateCreateAiDesc" :disabled="aiGenerating || !canGenerateAi(createForm)">生成 AI 描述</button>
+                            <button class="btn btn-ghost" @click="replaceCreateDescWithAi" :disabled="!createForm.aiDescription || !createForm.aiDescription.trim()">替换为 AI 描述</button>
+                        </div>
+                    </div>
+                </div>
             </div>
             <button class="btn btn-primary" @click="createPost">发布帖子</button>
         </section>
@@ -230,11 +245,16 @@
             <div class="top-controls">
                 <input v-model.trim="filters.keyword" class="input" placeholder="按物品名称搜索">
                 <input v-model.trim="filters.location" class="input" placeholder="按地点筛选">
+                <select v-model="filters.type" class="select">
+                    <option value="all">所有类型</option>
+                    <option value="1">失物信息</option>
+                    <option value="2">拾取信息</option>
+                </select>
                 <select v-model="filters.sortOrder" class="select">
                     <option value="desc">时间倒序（最新）</option>
                     <option value="asc">时间正序（最早）</option>
                 </select>
-                <button class="btn btn-ghost" @click="reloadPosts">刷新</button>
+                <button class="btn btn-primary" @click="reloadPosts">刷新</button>
             </div>
             <div style="height: 12px;"></div>
             <div class="posts">
@@ -275,6 +295,9 @@
                     <div class="post-actions">
                         <button class="btn btn-ghost" @click="startEdit(post)">修改</button>
                         <button class="btn btn-danger" @click="removePost(post.id)">删除</button>
+                        <button v-if="post.type === 1 && post.status === 0" class="btn btn-warning" @click="markAsFound(post)" :disabled="isFoundSubmitting(post.id)">
+                            {{ isFoundSubmitting(post.id) ? '提交中...' : '已找回' }}
+                        </button>
                     </div>
                 </div>
                 <div v-if="myPosts.length === 0" class="empty">你还没有可管理的帖子</div>
@@ -335,7 +358,20 @@
             </div>
             <div class="row">
                 <label>描述</label>
-                <textarea v-model.trim="editingPost.description" class="textarea"></textarea>
+                <div class="desc-grid">
+                    <div>
+                        <label style="margin-top:0;">人工描述</label>
+                        <textarea v-model.trim="editingPost.description" class="textarea"></textarea>
+                    </div>
+                    <div>
+                        <label style="margin-top:0;">AI 描述</label>
+                        <textarea v-model.trim="editingPost.aiDescription" class="textarea" readonly placeholder="发布后自动生成（如后端已保存）"></textarea>
+                        <div class="desc-actions">
+                            <button class="btn btn-primary" @click="generateEditAiDesc" :disabled="aiGenerating || !editingPost || !canGenerateAi(editingPost)">生成 AI 描述</button>
+                            <button class="btn btn-ghost" @click="replaceEditDescWithAi" :disabled="!editingPost.aiDescription || !editingPost.aiDescription.trim()">替换为 AI 描述</button>
+                        </div>
+                    </div>
+                </div>
             </div>
             <button class="btn btn-primary" @click="saveEdit">保存修改</button>
             <button class="btn btn-ghost" @click="editingPost = null">取消</button>
@@ -362,7 +398,7 @@
             const profileAvatarFile = ref(null);
             const profileAvatarPreview = ref('');
             const profileForm = ref({ nickname: '' });
-            const filters = ref({ keyword: '', location: '', sortOrder: 'desc' });
+            const filters = ref({ keyword: '', location: '', sortOrder: 'desc', type: 'all' });
 
             // 消息中心相关变量
             const chatList = ref([]);
@@ -373,9 +409,11 @@
             const wsRef = ref(null);
             const totalUnread = ref(0);
             const pinSubmitting = ref({});
+            const aiGenerating = ref(false);
+            const foundSubmitting = ref({});
 
             const createForm = ref({
-                type: 1, itemName: '', location: '', eventTime: '', description: '', contactInfo: ''
+                type: 1, itemName: '', location: '', eventTime: '', description: '', aiDescription: '', contactInfo: ''
             });
 
             const tabTitle = computed(function () {
@@ -396,7 +434,9 @@
                 const sorted = posts.value.slice().filter(function (p) {
                     const nameOk = !keyword || (p.itemName || '').toLowerCase().includes(keyword);
                     const locOk = !location || (p.location || '').toLowerCase().includes(location);
-                    return nameOk && locOk;
+                    const typeOk = filters.value.type === 'all' || p.type === Number(filters.value.type);
+                    const statusOk = p.status !== 1;
+                    return nameOk && locOk && typeOk && statusOk;
                 });
                 sorted.sort(function (a, b) {
                     const ta = new Date(a.eventTime || a.createTime || 0).getTime();
@@ -441,6 +481,10 @@
 
             function isPinSubmitting(postId) {
                 return !!(postId && pinSubmitting.value && pinSubmitting.value[postId]);
+            }
+
+            function isFoundSubmitting(postId) {
+                return !!(postId && foundSubmitting.value && foundSubmitting.value[postId]);
             }
 
             function resolveImageUrl(url) {
@@ -682,6 +726,89 @@
                 } catch (e) { alert('发布失败'); }
             }
 
+            function replaceCreateDescWithAi() {
+                const ai = (createForm.value.aiDescription || '').trim();
+                if (!ai) return;
+                createForm.value.description = ai;
+            }
+
+            function canGenerateAi(form) {
+                if (!form) return false;
+                if (!form.itemName || !String(form.itemName).trim()) return false;
+                if (!form.location || !String(form.location).trim()) return false;
+                if (!form.eventTime || !String(form.eventTime).trim()) return false;
+                return true;
+            }
+
+            async function generateAiDesc(payload, isEditMode = false) {
+                aiGenerating.value = true;
+                if (isEditMode && editingPost.value) {
+                    editingPost.value.aiDescription = '';
+                } else {
+                    createForm.value.aiDescription = '';
+                }
+                try {
+                    const baseURL = (window.httpClient && window.httpClient.baseURL) || window.location.origin || '';
+                    const url = baseURL ? (baseURL + '/StuItems/ai/preview') : '/StuItems/ai/preview';
+                    const response = await fetch(url, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': sessionStorage.getItem('token')
+                        },
+                        body: JSON.stringify(payload)
+                    });
+                    if (!response.ok) {
+                        const errorText = await response.text();
+                        throw new Error('请求失败: ' + errorText);
+                    }
+                    const reader = response.body.getReader();
+                    const decoder = new TextDecoder();
+                    let buffer = '';
+                    while (true) {
+                        const { done, value } = await reader.read();
+                        if (done) break;
+                        buffer += decoder.decode(value, { stream: true });
+                        // 按行分割处理 SSE 格式
+                        const lines = buffer.split('\n');
+                        buffer = lines.pop(); // 保留未完整的最后一行
+                        for (const line of lines) {
+                            if (line.startsWith('data:')) {
+                                const data = line.slice(5).trim();
+                                if (data === '[DONE]') return;
+                                if (isEditMode && editingPost.value) {
+                                    editingPost.value.aiDescription += data;
+                                } else {
+                                    createForm.value.aiDescription += data;
+                                }
+                            }
+                        }
+                    }
+                } finally {
+                    aiGenerating.value = false;
+                }
+            }
+
+            async function generateCreateAiDesc() {
+                try {
+                    // 确保 eventTime 格式正确，添加秒数
+                    let eventTime = createForm.value.eventTime;
+                    if (eventTime && eventTime.length === 16) { // YYYY-MM-DDTHH:MM
+                        eventTime = eventTime + ':00'; // 添加秒数
+                    }
+                    const payload = {
+                        type: createForm.value.type,
+                        itemName: createForm.value.itemName,
+                        location: createForm.value.location,
+                        eventTime: eventTime,
+                        description: createForm.value.description
+                    };
+                    await generateAiDesc(payload, false);
+                } catch (e) {
+                    alert('生成失败：' + (e && e.message ? e.message : '请稍后重试'));
+                }
+            }
+
             async function saveProfile() {
                 try {
                     const fd = new FormData();
@@ -720,6 +847,32 @@
             }
             function goToDetail(p) { window.location.href = `post-detail.html?postId=${p.id}&type=${p.type}`; }
             function startEdit(p) { editingPost.value = { ...p }; }
+            function replaceEditDescWithAi() {
+                if (!editingPost.value) return;
+                const ai = (editingPost.value.aiDescription || '').trim();
+                if (!ai) return;
+                editingPost.value.description = ai;
+            }
+            async function generateEditAiDesc() {
+                if (!editingPost.value) return;
+                try {
+                    // 确保 eventTime 格式正确，添加秒数
+                    let eventTime = editingPost.value.eventTime;
+                    if (eventTime && typeof eventTime === 'string' && eventTime.length === 16) {
+                        eventTime = eventTime + ':00';
+                    }
+                    const payload = {
+                        type: editingPost.value.type,
+                        itemName: editingPost.value.itemName,
+                        location: editingPost.value.location,
+                        eventTime: eventTime,
+                        description: editingPost.value.description
+                    };
+                    await generateAiDesc(payload, true);
+                } catch (e) {
+                    alert('生成失败：' + (e && e.message ? e.message : '请稍后重试'));
+                }
+            }
             async function saveEdit() {
                 await safeRequest('/StuItems/updateItem', 'PUT', editingPost.value);
                 editingPost.value = null; reloadPosts();
@@ -743,6 +896,25 @@
                     const next = Object.assign({}, pinSubmitting.value);
                     delete next[p.id];
                     pinSubmitting.value = next;
+                }
+            }
+
+            async function markAsFound(p) {
+                if (!p || !p.id) return;
+                if (p.status === 1) { alert('该物品已标记为已找回'); return; }
+                if (isFoundSubmitting(p.id)) return;
+
+                foundSubmitting.value = Object.assign({}, foundSubmitting.value, { [p.id]: true });
+                try {
+                    await safeRequest('/StuItems/updateFound/' + p.id, 'PATCH');
+                    p.status = 1;
+                    alert('已成功设置状态为已找回！');
+                } catch (e) {
+                    alert('申请失败：' + (e && e.message ? e.message : '请稍后重试'));
+                } finally {
+                    const next = Object.assign({}, foundSubmitting.value);
+                    delete next[p.id];
+                    foundSubmitting.value = next;
                 }
             }
 
@@ -775,7 +947,8 @@
                 formatTime, resolveImageUrl, openProfile, reloadPosts, createPost, onImageChange, isMe,
                 onProfileImageChange, saveProfile, goPrivateChat, goToDetail, startEdit, saveEdit,
                 removePost, loadMyLostPosts, applyPin, logout, goToMessages, selectChat, sendPrivateMsg,
-                confirmDeleteChat, fetchTotalUnread, isPinSubmitting
+                confirmDeleteChat, fetchTotalUnread, isPinSubmitting, replaceCreateDescWithAi, replaceEditDescWithAi,
+                generateCreateAiDesc, generateEditAiDesc, aiGenerating, canGenerateAi, markAsFound, isFoundSubmitting
             };
         }
     }).mount('#app');

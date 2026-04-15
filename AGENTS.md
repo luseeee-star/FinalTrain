@@ -16,6 +16,7 @@ FinalTrain is a Spring Boot 3.5.9 application for a student lost-and-found syste
 - **Passwords**: Encode with `BCryptPasswordEncoder` on registration/login
 - **Cross-Origin**: `@CrossOrigin(origins = "*")` on all controllers
 - **WebSocket Auth**: Token in query param `?token=...`, verify and store user in session
+- **AI Description Generation**: POST to `/StuItems/ai/preview` for streaming AI descriptions; backend returns `Flux<String>` mapped to SSE "data: " format with `[DONE]` marker; frontend uses `fetch` with `ReadableStream` to display data in real-time until `[DONE]`
 
 ## Development Workflow
 - **Build**: `./mvnw.cmd clean package` (requires Java 21)
@@ -29,12 +30,12 @@ FinalTrain is a Spring Boot 3.5.9 application for a student lost-and-found syste
 - **Services**: Interface in `service/`, impl in `service/impl/` with `@Service`
 - **Config**: Exclude Spring Security auto-config; custom CORS and resource handlers in `WebConfig`
 - **Exceptions**: Global handler in `GlobalExceptionHandler` (not detailed in code)
+- **Reactive Streams**: Use `Flux<String>` for streaming responses like AI generation, with `produces = MediaType.TEXT_EVENT_STREAM_VALUE`
 
 ## Key Files
 - `src/main/resources/application.yml`: DB config via env vars
 - `src/main/java/lsj/qg/finaltrain/config/WebConfig.java`: Interceptors, CORS, file serving
 - `src/main/java/lsj/qg/finaltrain/intercepters/LoginInterceptor.java`: JWT verification
 - `src/main/java/lsj/qg/finaltrain/utils/ResultJson.java`: Response wrapper
-- `src/main/java/lsj/qg/finaltrain/websocket/ChatEndpoint.java`: Real-time chat logic</content>
-<parameter name="filePath">D:\Java\FinalTrain\AGENTS.md
-
+- `src/main/java/lsj/qg/finaltrain/websocket/ChatEndpoint.java`: Real-time chat logic
+- `src/main/java/lsj/qg/finaltrain/service/impl/ItemServiceImpl.java`: AI description logic with Spring AI streaming

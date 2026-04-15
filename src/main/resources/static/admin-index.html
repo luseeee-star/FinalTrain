@@ -55,6 +55,7 @@
         .split { display: flex; gap: 12px; }
         .split-left { width: 360px; max-height: 62vh; overflow-y: auto; }
         .split-right { flex: 1; border: 1px solid #e5e7eb; border-radius: 12px; padding: 14px; background: #fafafa; min-height: 280px; }
+        .ai-result-box { border: 1px solid #e5e7eb; border-radius: 12px; padding: 12px; background: #fafafa; white-space: pre-wrap; line-height: 1.6; font-size: 14px; color: #374151; }
         .report-item { border: 1px solid #e5e7eb; border-radius: 12px; padding: 12px; background: #fff; margin-bottom: 10px; cursor: pointer; }
         .report-item.active { border-color: #93c5fd; box-shadow: 0 2px 10px rgba(37, 99, 235, 0.12); }
         .report-title { font-weight: 700; margin: 0; }
@@ -132,6 +133,24 @@
                 </div>
             </div>
             <p class="hint" v-if="stats && stats.activeStart">当前活跃区间：{{ stats.activeStart }} ~ {{ stats.activeEnd }}</p>
+        </section>
+
+        <section v-if="tab === 'overview'" class="card">
+            <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;">
+                <div>
+                    <h3 style="margin:0;">AI 统计分析</h3>
+                    <div class="hint" style="margin-top:6px;">来自后端 `ManaController.AiAnalyze` 的结论，用于辅助运营/治理决策。</div>
+                </div>
+                <button class="btn btn-primary" @click="loadAiAnalyze" :disabled="aiAnalyzeLoading">
+                    {{ aiAnalyzeLoading ? '生成中...' : '刷新 AI 结论' }}
+                </button>
+            </div>
+
+            <div style="margin-top:12px;">
+                <div v-if="aiAnalyzeError" class="hint" style="color:#dc2626;">{{ aiAnalyzeError }}</div>
+                <div v-else-if="!aiAnalyzeText" class="empty" style="padding: 18px 0;">暂无 AI 结论</div>
+                <div v-else class="ai-result-box">{{ aiAnalyzeText }}</div>
+            </div>
         </section>
 
         <section v-if="tab === 'users'" class="card">
@@ -348,6 +367,9 @@
 
             const stats = ref(null);
             const statsFilters = ref({ type: '', status: '', start: '', end: '' });
+            const aiAnalyzeText = ref('');
+            const aiAnalyzeLoading = ref(false);
+            const aiAnalyzeError = ref('');
 
             const users = ref([]);
             const userKeyword = ref('');
@@ -373,8 +395,12 @@
                 const p = {};
                 if (statsFilters.value.type !== '') p.type = Number(statsFilters.value.type);
                 if (statsFilters.value.status !== '') p.status = Number(statsFilters.value.status);
-                if (statsFilters.value.start) p.start = statsFilters.value.start;
-                if (statsFilters.value.end) p.end = statsFilters.value.end;
+                if (statsFilters.value.start) {
+                    p.start = statsFilters.value.start + ':00';
+                }
+                if (statsFilters.value.end) {
+                    p.end = statsFilters.value.end + ':00';
+                }
                 return p;
             }
 
@@ -384,6 +410,51 @@
                     globalMsg.value = '统计已更新';
                 } catch (e) {
                     globalMsg.value = '加载失败：' + e.message;
+                }
+            }
+
+            async function loadAiAnalyze() {
+                aiAnalyzeLoading.value = true;
+                aiAnalyzeError.value = '';
+                aiAnalyzeText.value = '';
+                try {
+                    const baseURL = (window.httpClient && window.httpClient.baseURL) || window.location.origin || '';
+                    const url = baseURL ? (baseURL + '/ManaItems/AiAnalyze') : '/ManaItems/AiAnalyze';
+                    const response = await fetch(url, {
+                        method: 'GET',
+                        headers: {
+                            'Authorization': sessionStorage.getItem('token')
+                        }
+                    });
+                    if (!response.ok) {
+                        const errorText = await response.text();
+                        throw new Error('请求失败: ' + errorText);
+                    }
+                    const reader = response.body.getReader();
+                    const decoder = new TextDecoder();
+                    let buffer = '';
+                    while (true) {
+                        const { done, value } = await reader.read();
+                        if (done) break;
+                        buffer += decoder.decode(value, { stream: true });
+                        // 按行分割处理 SSE 格式
+                        const lines = buffer.split('\n');
+                        buffer = lines.pop(); // 保留未完整的最后一行
+                        for (const line of lines) {
+                            if (line.startsWith('data:')) {
+                                const data = line.slice(5).trim();
+                                if (data === '[DONE]') {
+                                    aiAnalyzeLoading.value = false;
+                                    globalMsg.value = 'AI 结论已更新';
+                                    return;
+                                }
+                                aiAnalyzeText.value += data;
+                            }
+                        }
+                    }
+                } catch (e) {
+                    aiAnalyzeError.value = 'AI 分析加载失败：' + (e && e.message ? e.message : '请求失败');
+                    aiAnalyzeLoading.value = false;
                 }
             }
 
@@ -584,12 +655,14 @@
                     return;
                 }
                 loadStats();
+                loadAiAnalyze();
                 loadUsers();
             });
 
             return {
                 tab, globalMsg, titles,
                 stats, statsFilters, loadStats,
+                aiAnalyzeText, aiAnalyzeLoading, aiAnalyzeError, loadAiAnalyze,
                 users, userKeyword, loadUsers, banUser, unbanUser,
                 pinRequests, loadPins, approvePin, rejectPin,
                 reports, reportFilters, selectedReport, loadReports, selectReport, processReport, deletePostFromReport,

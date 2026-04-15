@@ -1,7 +1,9 @@
 package lsj.qg.finaltrain.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
+import jakarta.annotation.PostConstruct;
 import lsj.qg.finaltrain.mapper.ItemMapper;
 import lsj.qg.finaltrain.mapper.MessageMapper;
 import lsj.qg.finaltrain.mapper.ReportMapper;
@@ -11,14 +13,13 @@ import lsj.qg.finaltrain.pojo.Message;
 import lsj.qg.finaltrain.pojo.Report;
 import lsj.qg.finaltrain.pojo.User;
 import lsj.qg.finaltrain.service.ManaService;
+import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import reactor.core.publisher.Flux;
 
 import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 @Service
 public class ManaServicerImpl implements ManaService {
@@ -35,11 +36,23 @@ public class ManaServicerImpl implements ManaService {
     @Autowired
     private ReportMapper reportMapper;
 
+    @Autowired(required = false)
+    private ChatClient.Builder chatClientBuilder;
+
+    private ChatClient chatClient;
+
+    @PostConstruct
+    public void initChatClient() {
+        if (chatClientBuilder != null) {
+            chatClient = chatClientBuilder.build();
+        }
+    }
+
     // 列出用户，支持关键字搜索
     @Override
     public List<Map<String, Object>> listUsers(Long adminId, String keyword) {
         ensureAdmin(adminId);
-        // 构建查询条件，按ID倒序
+        // 构建查询条件，按ID倒序(DESC就是倒序排
         LambdaQueryWrapper<User> wrapper = new LambdaQueryWrapper<User>().orderByDesc(User::getId);
         if (keyword != null && !keyword.trim().isEmpty()) {
             String kw = keyword.trim();
@@ -323,5 +336,65 @@ public class ManaServicerImpl implements ManaService {
         if (!Integer.valueOf(0).equals(admin.getStatus())) {
             throw new IllegalArgumentException("账号已被封禁"); // 状态不为0（正常）
         }
+    }
+
+    @Override
+    public Flux<String> AiAnalyze(){
+        //统计丢失物品数量
+        QueryWrapper<ItemPost> wrapper1 = new QueryWrapper<>();
+
+        // 只查地点字段，并统计每个地点的数量，重命名为total_count
+        wrapper1.select("location", "COUNT(1) as total_count")
+                .ge("create_time", LocalDateTime.now().minusDays(3))//筛选最近3天
+                .groupBy("location");
+        // 执行查询并存入map中
+        List<Map<String, Object>> LostStats = itemMapper.selectMaps(wrapper1);
+        // 按数量倒序排列
+        LostStats.sort((o1, o2) -> {
+            Long count1 = Long.valueOf(o1.get("total_count").toString());
+            Long count2 = Long.valueOf(o2.get("total_count").toString());
+            return count2.compareTo(count1); // 倒序
+        });
+
+        //再对物品名称进行同样的操作
+        QueryWrapper<ItemPost> wrapper2 = new QueryWrapper<>();
+        wrapper2.select("item_name", "COUNT(1) as total_count")
+                .ge("create_time", LocalDateTime.now().minusDays(3))
+                .groupBy("item_name");
+        List<Map<String, Object>> ItemStats = itemMapper.selectMaps(wrapper2);
+
+        ItemStats.sort((o1, o2) -> {
+            Long count1 = Long.valueOf(o1.get("total_count").toString());
+            Long count2 = Long.valueOf(o2.get("total_count").toString());
+            return count2.compareTo(count1); // 倒序
+        });
+        //整合失物数据信息
+        StringBuilder sb = new StringBuilder("最近一周失物数据统计如下：\n");
+        for (Map<String, Object> item : LostStats) {
+            sb.append("地点：").append(item.get("location"))
+                    .append("，丢失数量：").append(item.get("total_count"))
+                    .append("\n");
+        }
+        //整合失物类型信息
+        StringBuilder sb1 = new StringBuilder("最近一周失物类型统计如下：\n");
+        for (Map<String, Object> item : ItemStats) {
+            sb1.append("物品类型：").append(item.get("item_name"))
+                    .append("，丢失数量：").append(item.get("total_count"))
+                    .append("\n");
+        }
+
+        if (chatClient == null) {
+            throw new NullPointerException("AI 服务未启用");
+        }
+        String prompt = "请根据以下关于丢失物品地点与名称的信息生成一段简短、客观、易读的总结给管理员阅读," +
+                "你要根据信息加自己判断说出哪个地方丢失物品多以及哪个物品丢失数量多" +
+                "仅输出描述文本，不要加前缀：\n"
+                + "丢失地点信息：" + sb+"\n" + "丢失物品类型信息:"+ sb1;
+
+        Flux<String> ai = chatClient.prompt()
+                .user(prompt)
+                .stream()
+                .content();
+        return ai.concatWith(Flux.just("[DONE]"));
     }
 }

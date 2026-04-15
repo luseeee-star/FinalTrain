@@ -1,37 +1,119 @@
 package lsj.qg.finaltrain.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import lsj.qg.finaltrain.mapper.AiUsageLogMapper;
 import lsj.qg.finaltrain.mapper.ItemMapper;
 import lsj.qg.finaltrain.mapper.ReportMapper;
+import lsj.qg.finaltrain.pojo.AiUsageLog;
 import lsj.qg.finaltrain.pojo.ItemPost;
 import lsj.qg.finaltrain.pojo.Report;
 import lsj.qg.finaltrain.service.ItemService;
 import lsj.qg.finaltrain.utils.ThreadLocalUtil;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import jakarta.annotation.PostConstruct;
+import reactor.core.publisher.Flux;
+
+import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 
 
 @Service
 public class ItemServiceImpl implements ItemService {
+    private static final Logger log = LoggerFactory.getLogger(ItemServiceImpl.class);
+
     @Autowired
     private ItemMapper itemMapper;
 
     @Autowired
     private ReportMapper reportMapper;
 
-    //发布失/拾取物信息
+    @Autowired(required = false)
+    private ChatClient.Builder chatClientBuilder;
+
+    @Autowired
+    private AiUsageLogMapper aiUsageLogMapper;
+
+    private ChatClient chatClient;
+
+    @PostConstruct
+    public void initChatClient() {
+        if (chatClientBuilder != null) {
+            chatClient = chatClientBuilder.build();
+        }
+    }
+
+
+    //发布失物/拾取物信息
     //如果报错回滚事务
     @Transactional
     @Override
-    public boolean InsertItem(ItemPost itemPost) {
+    public boolean InsertItem(ItemPost itemPost,Long userid) {
         if (itemPost.getUserId() == null) {
             throw new NullPointerException("缺少发布者信息");
         }
-        return itemMapper.insert(itemPost) > 0;
+        boolean ok = itemMapper.insert(itemPost) > 0;
+        if (!ok) {
+            return false;
+        }
+
+        ItemPost update = new ItemPost();
+        update.setId(itemPost.getId());
+        update.setCreateTime(LocalDateTime.now());
+        itemMapper.updateById(update);
+
+        return true;
+    }
+    @Override
+    public Flux<String> AIdescription(ItemPost itemPost, Long userId){
+        try {
+            if (chatClient == null) {
+                throw new NullPointerException("AI 服务未启用");
+            }
+            if (itemPost == null) {
+                throw new NullPointerException("参数不能为空");
+            }
+            String type = Integer.valueOf(1).equals(itemPost.getType()) ? "失物" : "拾取";
+            String prompt = "请根据以下失物招领信息生成一段较为详细、客观、易读的AI对于物品的外观、大小或颜色的描述，控制在60字以内，仅输出描述文本，不要加前缀：\n"
+                    + "类型：" + type + "\n"
+                    + "物品名称：" + (itemPost.getItemName() == null ? "" : itemPost.getItemName()) + "\n"
+                    + "地点：" + (itemPost.getLocation() == null ? "" : itemPost.getLocation()) + "\n"
+                    + "时间：" + (itemPost.getEventTime() == null ? "" : itemPost.getEventTime()) + "\n"
+                    + "描述：" + (itemPost.getDescription() == null ? "" : itemPost.getDescription());
+
+            //设置限额
+            //查询时间
+            LocalDateTime todayStart = LocalDate.now().atStartOfDay();
+            // 查询今天已经调用了多少次
+            LambdaQueryWrapper<AiUsageLog> queryWrapper = new LambdaQueryWrapper<>();
+            queryWrapper.eq(AiUsageLog::getUserId, userId)
+                    .ge(AiUsageLog::getCreateTime, todayStart);
+            Long count = aiUsageLogMapper.selectCount(queryWrapper);
+            // 判断是否超限
+            if (count > 5) {
+                return Flux.just("今日AI调用次数已达上限","[DONE]");
+            }
+            // 记录这次调用
+            AiUsageLog log = new AiUsageLog();
+            log.setUserId(userId);
+            //时间可以让数据库自己生成
+            aiUsageLogMapper.insert(log);
+            Flux<String> ai = chatClient.prompt()
+                                        .user(prompt)
+                                        .stream()
+                                        .content();
+            // 将"[DONE]"添加到结果中((Flux.just("[DONE]")意思是创建一个包含一个元素"[DONE]"的Flux)
+            return ai.concatWith(Flux.just("[DONE]"));
+        } catch (Exception e) {
+            throw new RuntimeException(e.getMessage());
+        }
     }
 
     //信息浏览  1-(丢失)  2-(拾取)
@@ -137,5 +219,27 @@ public class ItemServiceImpl implements ItemService {
         return itemMapper.deleteById(postId) > 0;
     }
 
+    // 标记为已找回
+    //如果报错回滚事务
+    @Transactional
+    @Override
+    public boolean SetFound(Long postId) {
+        if (postId == null) {
+            throw new NullPointerException("缺少帖子ID");
+        }
+        Map<String, String> map = ThreadLocalUtil.get();
+        Long userid = (long) Integer.parseInt(map.get("userid"));
+        ItemPost dbPost = itemMapper.selectById(postId);
+        if (dbPost == null) {
+            throw new NullPointerException("帖子不存在");
+        }
+        if (!userid.equals(dbPost.getUserId())) {
+            throw new RuntimeException("只能标记自己的帖子为已找回");
+        }
+        ItemPost update = new ItemPost();
+        update.setId(postId);
+        update.setStatus(1); // 1=已完成
+        return itemMapper.updateById(update) > 0;
+    }
 
 }

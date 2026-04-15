@@ -92,6 +92,7 @@
   // window 是浏览器的全局对象。
 // 把 httpClient 挂载到 window 上，相当于定义了一个“全局单例工具类”，在任何页面都能直接用。
   window.httpClient = {
+    baseURL: BASE_URL,
     ensurePageAuth: ensurePageAuth,
     parseJwtPayload: parseJwtPayload,
     request: function (url, method, data, config) {
