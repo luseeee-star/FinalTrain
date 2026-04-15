@@ -15,20 +15,59 @@
 <div id="app" class="bg-white p-8 rounded-lg shadow-md w-96">
     <h2 class="text-2xl font-bold mb-6 text-center text-blue-600">用户登录</h2>
 
-    <div class="space-y-4">
-        <div>
-            <label class="block text-sm font-medium text-gray-700">手机号 / 邮箱</label>
-            <input v-model="form.account" type="text" class="mt-1 block w-full border border-gray-300 rounded-md p-2 shadow-sm focus:ring-blue-500 focus:border-blue-500" placeholder="请输入手机号或邮箱">
-        </div>
-
-        <div>
-            <label class="block text-sm font-medium text-gray-700">密码</label>
-            <input v-model="form.password" type="password" class="mt-1 block w-full border border-gray-300 rounded-md p-2 shadow-sm focus:ring-blue-500 focus:border-blue-500" placeholder="请输入密码">
-        </div>
-
-        <button @click="handleLogin" :disabled="loading" class="w-full bg-blue-600 text-white p-2 rounded-md hover:bg-blue-700 transition disabled:bg-gray-400 font-bold">
-            {{ loading ? '验证中...' : '立即登录' }}
+    <!-- 登录方式切换 -->
+    <div class="flex mb-6 border-b">
+        <button @click="loginType = 'password'" :class="loginType === 'password' ? 'border-b-2 border-blue-600 text-blue-600' : 'text-gray-500'" class="flex-1 pb-2 font-medium transition">
+            密码登录
         </button>
+        <button @click="loginType = 'code'" :class="loginType === 'code' ? 'border-b-2 border-blue-600 text-blue-600' : 'text-gray-500'" class="flex-1 pb-2 font-medium transition">
+            验证码登录
+        </button>
+    </div>
+
+    <div class="space-y-4">
+        <!-- 密码登录 -->
+        <template v-if="loginType === 'password'">
+            <div>
+                <label class="block text-sm font-medium text-gray-700">手机号 / 邮箱</label>
+                <input v-model="form.account" type="text" class="mt-1 block w-full border border-gray-300 rounded-md p-2 shadow-sm focus:ring-blue-500 focus:border-blue-500" placeholder="请输入手机号或邮箱">
+            </div>
+
+            <div>
+                <label class="block text-sm font-medium text-gray-700">密码</label>
+                <input v-model="form.password" type="password" class="mt-1 block w-full border border-gray-300 rounded-md p-2 shadow-sm focus:ring-blue-500 focus:border-blue-500" placeholder="请输入密码">
+            </div>
+
+            <div class="text-right">
+                <a href="#" @click.prevent="showResetModal = true" class="text-sm text-blue-600 hover:underline">忘记密码？</a>
+            </div>
+
+            <button @click="handleLogin" :disabled="loading" class="w-full bg-blue-600 text-white p-2 rounded-md hover:bg-blue-700 transition disabled:bg-gray-400 font-bold">
+                {{ loading ? '验证中...' : '立即登录' }}
+            </button>
+        </template>
+
+        <!-- 验证码登录 -->
+        <template v-else>
+            <div>
+                <label class="block text-sm font-medium text-gray-700">邮箱</label>
+                <input v-model="form.email" type="email" class="mt-1 block w-full border border-gray-300 rounded-md p-2 shadow-sm focus:ring-blue-500 focus:border-blue-500" placeholder="请输入邮箱">
+            </div>
+
+            <div>
+                <label class="block text-sm font-medium text-gray-700">验证码</label>
+                <div class="flex gap-2">
+                    <input v-model="form.code" type="text" class="mt-1 block w-full border border-gray-300 rounded-md p-2 shadow-sm focus:ring-blue-500 focus:border-blue-500" placeholder="请输入邮箱验证码">
+                    <button @click="sendLoginCode" :disabled="codeLoading || countdown > 0" class="mt-1 px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700 transition disabled:bg-gray-400 whitespace-nowrap">
+                        {{ countdown > 0 ? countdown + '秒' : '获取验证码' }}
+                    </button>
+                </div>
+            </div>
+
+            <button @click="handleCodeLogin" :disabled="loading" class="w-full bg-blue-600 text-white p-2 rounded-md hover:bg-blue-700 transition disabled:bg-gray-400 font-bold">
+                {{ loading ? '验证中...' : '立即登录' }}
+            </button>
+        </template>
     </div>
 
     <div v-if="message" :class="isError ? 'text-red-500' : 'text-green-500'" class="mt-4 text-center text-sm font-bold">
@@ -39,6 +78,47 @@
         <span class="text-sm text-gray-600">还没有账号？</span>
         <a href="register.html" class="text-sm text-blue-600 hover:underline font-medium">去注册</a>
     </div>
+
+    <!-- 找回密码弹窗 -->
+    <div v-if="showResetModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div class="bg-white p-6 rounded-lg shadow-lg w-80">
+            <h3 class="text-lg font-bold mb-4 text-center">找回密码</h3>
+            
+            <div class="space-y-3">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700">邮箱</label>
+                    <input v-model="resetForm.email" type="email" class="mt-1 block w-full border border-gray-300 rounded-md p-2 text-sm" placeholder="请输入注册邮箱">
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-700">验证码</label>
+                    <div class="flex gap-2">
+                        <input v-model="resetForm.code" type="text" class="mt-1 block w-full border border-gray-300 rounded-md p-2 text-sm" placeholder="验证码">
+                        <button @click="sendResetCode" :disabled="resetCountdown > 0" class="mt-1 px-3 py-2 bg-gray-600 text-white rounded-md text-sm hover:bg-gray-700 transition disabled:bg-gray-400 whitespace-nowrap">
+                            {{ resetCountdown > 0 ? resetCountdown + '秒' : '获取' }}
+                        </button>
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-700">新密码</label>
+                    <input v-model="resetForm.newPassword" type="password" class="mt-1 block w-full border border-gray-300 rounded-md p-2 text-sm" placeholder="6-20位密码">
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-700">确认密码</label>
+                    <input v-model="resetForm.confirmPassword" type="password" class="mt-1 block w-full border border-gray-300 rounded-md p-2 text-sm" placeholder="再次输入密码">
+                </div>
+            </div>
+
+            <div class="flex gap-2 mt-4">
+                <button @click="showResetModal = false" class="flex-1 bg-gray-300 text-gray-700 p-2 rounded-md hover:bg-gray-400 transition">取消</button>
+                <button @click="handleResetPassword" :disabled="resetLoading" class="flex-1 bg-blue-600 text-white p-2 rounded-md hover:bg-blue-700 transition disabled:bg-gray-400">
+                    {{ resetLoading ? '提交中...' : '重置密码' }}
+                </button>
+            </div>
+        </div>
+    </div>
 </div>
 
 <script>
@@ -48,12 +128,28 @@
         setup() {
             const form = ref({
                 account: '',
-                password: ''
+                password: '',
+                email: '',
+                code: ''
             });
 
             const loading = ref(false);
             const message = ref('');
             const isError = ref(false);
+            const loginType = ref('password'); // 'password' 或 'code'
+            const codeLoading = ref(false);
+            const countdown = ref(0);
+            
+            // 找回密码相关
+            const showResetModal = ref(false);
+            const resetLoading = ref(false);
+            const resetCountdown = ref(0);
+            const resetForm = ref({
+                email: '',
+                code: '',
+                newPassword: '',
+                confirmPassword: ''
+            });
 
             const handleLogin = async () => {
                 loading.value = true;
@@ -112,7 +208,179 @@
                 }
             };
 
-            return { form, loading, message, isError, handleLogin };
+            const sendLoginCode = async () => {
+                if (!form.value.email) {
+                    message.value = '请先输入邮箱';
+                    isError.value = true;
+                    return;
+                }
+                if (!form.value.email.match(/^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/)) {
+                    message.value = '邮箱格式不正确';
+                    isError.value = true;
+                    return;
+                }
+
+                codeLoading.value = true;
+                try {
+                    const response = await window.httpClient.request('/Users/sendLoginCode', 'POST', {
+                        email: form.value.email
+                    });
+
+                    if (response && response.code === 200) {
+                        message.value = '';
+                        Swal.fire({
+                            title: '发送成功',
+                            text: '验证码已发送到您的邮箱',
+                            icon: 'success',
+                            timer: 2000,
+                            showConfirmButton: false
+                        });
+                        countdown.value = 60;
+                        const timer = setInterval(() => {
+                            countdown.value--;
+                            if (countdown.value <= 0) {
+                                clearInterval(timer);
+                            }
+                        }, 1000);
+                    } else {
+                        isError.value = true;
+                        message.value = response.msg || '发送失败';
+                    }
+                } catch (error) {
+                    isError.value = true;
+                    message.value = '发送失败，请检查网络';
+                } finally {
+                    codeLoading.value = false;
+                }
+            };
+
+            const handleCodeLogin = async () => {
+                if (!form.value.email || !form.value.code) {
+                    message.value = '请填写邮箱和验证码';
+                    isError.value = true;
+                    return;
+                }
+
+                loading.value = true;
+                message.value = '';
+
+                try {
+                    const response = await window.httpClient.request('/Users/loginWithCode', 'POST', {
+                        email: form.value.email,
+                        code: form.value.code
+                    });
+
+                    if (response && response.code === 200) {
+                        isError.value = false;
+                        if (response.data && response.data.token) {
+                            sessionStorage.setItem('token', response.data.token);
+                        }
+                        const user = response.data && response.data.user ? response.data.user : null;
+                        const role = user && (user.role === 1 || user.role === '1') ? 1 : 0;
+                        sessionStorage.setItem('userRole', String(role));
+
+                        const isAdmin = role === 1;
+                        Swal.fire({
+                            title: '欢迎回来!',
+                            text: isAdmin ? '登录成功，正在进入管理后台...' : '登录成功，正在进入学生大厅...',
+                            icon: 'success',
+                            timer: 1500,
+                            showConfirmButton: false,
+                            background: '#fff',
+                            iconColor: '#2563eb'
+                        }).then(() => {
+                            window.location.href = isAdmin ? 'admin-index.html' : 'index.html';
+                        });
+                    } else {
+                        isError.value = true;
+                        message.value = '登录失败：' + (response.msg || '验证码错误');
+                    }
+                } catch (error) {
+                    isError.value = true;
+                    message.value = '服务器连接失败';
+                } finally {
+                    loading.value = false;
+                }
+            };
+
+            const sendResetCode = async () => {
+                if (!resetForm.value.email) {
+                    Swal.fire('提示', '请先输入邮箱', 'warning');
+                    return;
+                }
+
+                try {
+                    const response = await window.httpClient.request('/Users/sendResetCode', 'POST', {
+                        email: resetForm.value.email
+                    });
+
+                    if (response && response.code === 200) {
+                        Swal.fire({
+                            title: '发送成功',
+                            text: '验证码已发送',
+                            icon: 'success',
+                            timer: 2000,
+                            showConfirmButton: false
+                        });
+                        resetCountdown.value = 60;
+                        const timer = setInterval(() => {
+                            resetCountdown.value--;
+                            if (resetCountdown.value <= 0) {
+                                clearInterval(timer);
+                            }
+                        }, 1000);
+                    } else {
+                        Swal.fire('发送失败', response.msg, 'error');
+                    }
+                } catch (error) {
+                    Swal.fire('发送失败', '请检查网络', 'error');
+                }
+            };
+
+            const handleResetPassword = async () => {
+                if (!resetForm.value.email || !resetForm.value.code || !resetForm.value.newPassword) {
+                    Swal.fire('提示', '请填写完整信息', 'warning');
+                    return;
+                }
+                if (resetForm.value.newPassword !== resetForm.value.confirmPassword) {
+                    Swal.fire('提示', '两次密码不一致', 'warning');
+                    return;
+                }
+
+                resetLoading.value = true;
+                try {
+                    const response = await window.httpClient.request('/Users/resetPassword', 'POST', {
+                        email: resetForm.value.email,
+                        newPassword: resetForm.value.newPassword,
+                        confirmPassword: resetForm.value.confirmPassword,
+                        code: resetForm.value.code
+                    });
+
+                    if (response && response.code === 200) {
+                        Swal.fire({
+                            title: '重置成功',
+                            text: '请使用新密码登录',
+                            icon: 'success',
+                            confirmButtonText: '确定'
+                        }).then(() => {
+                            showResetModal.value = false;
+                            resetForm.value = { email: '', code: '', newPassword: '', confirmPassword: '' };
+                        });
+                    } else {
+                        Swal.fire('重置失败', response.msg, 'error');
+                    }
+                } catch (error) {
+                    Swal.fire('重置失败', '请检查网络', 'error');
+                } finally {
+                    resetLoading.value = false;
+                }
+            };
+
+            return { 
+                form, loading, message, isError, loginType, codeLoading, countdown,
+                showResetModal, resetLoading, resetCountdown, resetForm,
+                handleLogin, sendLoginCode, handleCodeLogin, sendResetCode, handleResetPassword 
+            };
         }
     }).mount('#app');
 </script>

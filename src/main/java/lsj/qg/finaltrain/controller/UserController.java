@@ -4,6 +4,8 @@ import jakarta.servlet.http.HttpSession;
 import lsj.qg.finaltrain.mapper.UserMapper;
 import lsj.qg.finaltrain.pojo.User;
 import lsj.qg.finaltrain.service.UserService;
+import lsj.qg.finaltrain.service.VerifiCodeService;
+import lsj.qg.finaltrain.utils.EmailUtil;
 import lsj.qg.finaltrain.utils.JwtUtil;
 import lsj.qg.finaltrain.utils.ResultJson;
 import lsj.qg.finaltrain.utils.ThreadLocalUtil;
@@ -30,6 +32,12 @@ public class UserController {
 
     @Autowired
     private JwtUtil jwtUtil;
+    
+    @Autowired
+    private EmailUtil emailUtil;
+    
+    @Autowired
+    private VerifiCodeService verifiCodeService;
 
     //注册
     @PostMapping("/register")
@@ -48,6 +56,62 @@ public class UserController {
             user.setPhone(phone);
 
             userService.register(user, confirmPassword);
+            return ResultJson.success("注册成功");
+        } catch (IllegalArgumentException e) {
+            return ResultJson.error(e.getMessage());
+        } catch (Exception e) {
+            return ResultJson.error("注册失败");
+        }
+    }
+    
+    //发送注册验证码
+    @PostMapping("/sendRegisterCode")
+    public ResultJson<String> sendRegisterCode(@RequestBody Map<String, String> request) {
+        try {
+            String email = request.get("email");
+            
+            if (email == null || !email.matches("^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$")) {
+                return ResultJson.error("邮箱格式有误");
+            }
+            
+            // 检查邮箱是否已注册
+            if (userService.findByEmail(email) != null) {
+                return ResultJson.error("该邮箱已被注册");
+            }
+            
+            // 检查发送频率
+            if (!verifiCodeService.canSendCode(email)) {
+                return ResultJson.error("发送过于频繁，请60秒后重试");
+            }
+            
+            String code = emailUtil.generateCode();
+            emailUtil.sendVerificationCode(email, code, "register");
+            verifiCodeService.saveCode(email, code, "register");
+            
+            return ResultJson.success("验证码已发送");
+        } catch (Exception e) {
+            return ResultJson.error("发送失败：" + e.getMessage());
+        }
+    }
+    
+    //验证码注册
+    @PostMapping("/registerWithCode")
+    public ResultJson<String> registerWithCode(@RequestBody Map<String, String> request) {
+        try {
+            String username = request.get("username");
+            String password = request.get("password");
+            String confirmPassword = request.get("confirmPassword");
+            String email = request.get("email");
+            String phone = request.get("phone");
+            String code = request.get("code");
+
+            User user = new User();
+            user.setUsername(username);
+            user.setPassword(password);
+            user.setEmail(email);
+            user.setPhone(phone);
+
+            userService.registerWithCode(user, confirmPassword, code);
             return ResultJson.success("注册成功");
         } catch (IllegalArgumentException e) {
             return ResultJson.error(e.getMessage());
@@ -87,6 +151,118 @@ public class UserController {
             return ResultJson.error(e.getMessage());
         } catch (Exception e) {
             return ResultJson.error("登录失败");
+        }
+    }
+    
+    //发送登录验证码
+    @PostMapping("/sendLoginCode")
+    public ResultJson<String> sendLoginCode(@RequestBody Map<String, String> request) {
+        try {
+            String email = request.get("email");
+            
+            if (email == null || !email.matches("^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$")) {
+                return ResultJson.error("邮箱格式有误");
+            }
+            
+            // 检查邮箱是否已注册
+            if (userService.findByEmail(email) == null) {
+                return ResultJson.error("该邮箱未注册");
+            }
+            
+            // 检查发送频率
+            if (!verifiCodeService.canSendCode(email)) {
+                return ResultJson.error("发送过于频繁，请60秒后重试");
+            }
+            
+            String code = emailUtil.generateCode();
+            emailUtil.sendVerificationCode(email, code, "login");
+            verifiCodeService.saveCode(email, code, "login");
+            
+            return ResultJson.success("验证码已发送");
+        } catch (Exception e) {
+            return ResultJson.error("发送失败：" + e.getMessage());
+        }
+    }
+    
+    //验证码登录
+    @PostMapping("/loginWithCode")
+    public ResultJson<Map<String, Object>> loginWithCode(@RequestBody Map<String, String> request, HttpSession session) {
+        try {
+            String email = request.get("email");
+            String code = request.get("code");
+
+            User user = userService.loginWithCode(email, code);
+
+            // 生成token
+            Map<String, Object> claims = new HashMap<>();
+            claims.put("userid", user.getId().toString());
+            claims.put("username", user.getUsername());
+            claims.put("status", user.getStatus());
+            claims.put("role", user.getRole());
+            String token = JwtUtil.createToken(claims);
+
+            //生成session数据
+            session.setAttribute("userId", user.getId());
+            session.setAttribute("username", user.getUsername());
+            session.setAttribute("nickname", user.getNickname());
+
+            Map<String, Object> data = new HashMap<>();
+            data.put("token", token);
+            data.put("user", user);
+
+            return ResultJson.success("登录成功", data);
+        } catch (IllegalArgumentException e) {
+            return ResultJson.error(e.getMessage());
+        } catch (Exception e) {
+            return ResultJson.error("登录失败");
+        }
+    }
+    
+    //发送密码重置验证码
+    @PostMapping("/sendResetCode")
+    public ResultJson<String> sendResetCode(@RequestBody Map<String, String> request) {
+        try {
+            String email = request.get("email");
+            
+            if (email == null || !email.matches("^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$")) {
+                return ResultJson.error("邮箱格式有误");
+            }
+            
+            // 检查邮箱是否已注册
+            if (userService.findByEmail(email) == null) {
+                return ResultJson.error("该邮箱未注册");
+            }
+            
+            // 检查发送频率
+            if (!verifiCodeService.canSendCode(email)) {
+                return ResultJson.error("发送过于频繁，请60秒后重试");
+            }
+            
+            String code = emailUtil.generateCode();
+            emailUtil.sendVerificationCode(email, code, "reset");
+            verifiCodeService.saveCode(email, code, "reset");
+            
+            return ResultJson.success("验证码已发送");
+        } catch (Exception e) {
+            return ResultJson.error("发送失败：" + e.getMessage());
+        }
+    }
+    
+    //重置密码
+    @PostMapping("/resetPassword")
+    public ResultJson<String> resetPassword(@RequestBody Map<String, String> request) {
+        try {
+            String email = request.get("email");
+            String newPassword = request.get("newPassword");
+            String confirmPassword = request.get("confirmPassword");
+            String code = request.get("code");
+
+            userService.resetPassword(email, newPassword, confirmPassword, code);
+            return ResultJson.success("密码重置成功");
+        } catch (IllegalArgumentException e) {
+            return ResultJson.error(e.getMessage());
+        } catch (Exception e) {
+            return ResultJson.error("密码重置失败");
         }
     }
 

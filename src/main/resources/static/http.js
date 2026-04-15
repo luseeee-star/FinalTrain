@@ -1,7 +1,7 @@
 ;(function () {
   const BASE_URL = 'http://localhost:8080';
   const LOGIN_PAGE = 'login.html';
-  const PUBLIC_PAGES = ['login.html', 'register.html'];
+  const PUBLIC_PAGES = ['login.html', 'register.html', 'post-detail.html'];
 
   if (typeof axios === 'undefined') {
     throw new Error('axios is not loaded');

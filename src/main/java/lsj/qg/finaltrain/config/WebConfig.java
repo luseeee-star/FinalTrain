@@ -20,7 +20,9 @@ public class WebConfig implements WebMvcConfigurer {
                 //设置拦截路径
                 .addPathPatterns("/StuItems/**", "/Users/**", "/message/**", "/ManaItems/**")
                 //设置拦截白名单
-                .excludePathPatterns("/Users/login", "/Users/register");
+                .excludePathPatterns("/Users/login", "/Users/register", "/Users/sendRegisterCode"
+                ,"/Users/registerWithCode", "/Users/sendLoginCode", "/Users/loginWithCode", "/Users/sendResetCode",
+                        "/Users/resetPasswordWithCode","/Users/resetPassword");
     }
 
     @Override

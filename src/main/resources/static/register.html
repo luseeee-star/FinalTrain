@@ -33,7 +33,19 @@
 
         <div>
             <label class="block text-sm font-medium text-gray-700">邮箱</label>
-            <input v-model="form.email" type="email" class="mt-1 block w-full border border-gray-300 rounded-md p-2 shadow-sm focus:ring-blue-500 focus:border-blue-500" placeholder="example@edu.cn">
+            <div class="flex gap-2">
+                <input v-model="form.email" type="email" class="mt-1 block w-full border border-gray-300 rounded-md p-2 shadow-sm focus:ring-blue-500 focus:border-blue-500" placeholder="example@edu.cn">
+            </div>
+        </div>
+
+        <div>
+            <label class="block text-sm font-medium text-gray-700">验证码</label>
+            <div class="flex gap-2">
+                <input v-model="form.code" type="text" class="mt-1 block w-full border border-gray-300 rounded-md p-2 shadow-sm focus:ring-blue-500 focus:border-blue-500" placeholder="请输入邮箱验证码">
+                <button @click="sendCode" :disabled="codeLoading || countdown > 0" class="mt-1 px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700 transition disabled:bg-gray-400 whitespace-nowrap">
+                    {{ countdown > 0 ? countdown + '秒' : '获取验证码' }}
+                </button>
+            </div>
         </div>
 
         <div>
@@ -66,11 +78,14 @@
                 password: '',
                 confirmPassword: '',
                 email: '',
-                phone: ''
+                phone: '',
+                code: ''
             });
 
             const loading = ref(false);
             const message = ref('');
+            const codeLoading = ref(false);
+            const countdown = ref(0);
 
             const handleRegister = async () => {
                 // 基本前端校验
@@ -90,6 +105,10 @@
                     message.value = '两次密码不一致';
                     return;
                 }
+                if (!form.value.code) {
+                    message.value = '请输入邮箱验证码';
+                    return;
+                }
 
                 loading.value = true;
 
@@ -100,11 +119,12 @@
                         password: form.value.password,
                         confirmPassword: form.value.confirmPassword,
                         email: form.value.email,
-                        phone: form.value.phone
+                        phone: form.value.phone,
+                        code: form.value.code
                     };
 
-                    // 请确保 URL 路径与后端 Controller 保持一致 (注意 Users 的大小写)
-                    const response = await window.httpClient.request('/Users/register', 'POST', requestData);
+                    // 使用验证码注册接口
+                    const response = await window.httpClient.request('/Users/registerWithCode', 'POST', requestData);
 
                     if (response && response.code === 200) {
                         // 成功弹窗
@@ -127,7 +147,50 @@
                 }
             };
 
-            return { form, loading, message, handleRegister };
+            const sendCode = async () => {
+                if (!form.value.email) {
+                    message.value = '请先输入邮箱';
+                    return;
+                }
+                if (!form.value.email.match(/^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/)) {
+                    message.value = '邮箱格式不正确';
+                    return;
+                }
+
+                codeLoading.value = true;
+                try {
+                    const response = await window.httpClient.request('/Users/sendRegisterCode', 'POST', {
+                        email: form.value.email
+                    });
+
+                    if (response && response.code === 200) {
+                        message.value = '';
+                        Swal.fire({
+                            title: '发送成功',
+                            text: '验证码已发送到您的邮箱，请查收',
+                            icon: 'success',
+                            timer: 2000,
+                            showConfirmButton: false
+                        });
+                        // 开始倒计时
+                        countdown.value = 60;
+                        const timer = setInterval(() => {
+                            countdown.value--;
+                            if (countdown.value <= 0) {
+                                clearInterval(timer);
+                            }
+                        }, 1000);
+                    } else {
+                        message.value = response.msg || '发送失败';
+                    }
+                } catch (error) {
+                    message.value = '发送失败，请检查网络';
+                } finally {
+                    codeLoading.value = false;
+                }
+            };
+
+            return { form, loading, message, codeLoading, countdown, handleRegister, sendCode };
         }
     }).mount('#app');
 </script>

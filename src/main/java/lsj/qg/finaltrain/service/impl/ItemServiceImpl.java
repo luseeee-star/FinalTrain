@@ -81,7 +81,8 @@ public class ItemServiceImpl implements ItemService {
                 throw new NullPointerException("参数不能为空");
             }
             String type = Integer.valueOf(1).equals(itemPost.getType()) ? "失物" : "拾取";
-            String prompt = "请根据以下失物招领信息生成一段较为详细、客观、易读的AI对于物品的外观、大小或颜色的描述，控制在60字以内，仅输出描述文本，不要加前缀：\n"
+            String prompt = "请根据以下失物招领信息生成一段较为详细、客观、易读的AI对于物品的外观、大小或颜色的描述，控制在60字以内，" +
+                    "仅输出描述文本，不要加前缀,不要泄露像密码、身份证号、门牌号等隐私：\n"
                     + "类型：" + type + "\n"
                     + "物品名称：" + (itemPost.getItemName() == null ? "" : itemPost.getItemName()) + "\n"
                     + "地点：" + (itemPost.getLocation() == null ? "" : itemPost.getLocation()) + "\n"
@@ -97,7 +98,7 @@ public class ItemServiceImpl implements ItemService {
                     .ge(AiUsageLog::getCreateTime, todayStart);
             Long count = aiUsageLogMapper.selectCount(queryWrapper);
             // 判断是否超限
-            if (count > 5) {
+            if (count > 50) {
                 return Flux.just("今日AI调用次数已达上限","[DONE]");
             }
             // 记录这次调用
@@ -105,11 +106,12 @@ public class ItemServiceImpl implements ItemService {
             log.setUserId(userId);
             //时间可以让数据库自己生成
             aiUsageLogMapper.insert(log);
+
             Flux<String> ai = chatClient.prompt()
-                                        .user(prompt)
-                                        .stream()
-                                        .content();
-            // 将"[DONE]"添加到结果中((Flux.just("[DONE]")意思是创建一个包含一个元素"[DONE]"的Flux)
+                    .user(prompt)
+                    .stream()
+                    .content();
+            // 将"[DONE]"添加到结果中
             return ai.concatWith(Flux.just("[DONE]"));
         } catch (Exception e) {
             throw new RuntimeException(e.getMessage());

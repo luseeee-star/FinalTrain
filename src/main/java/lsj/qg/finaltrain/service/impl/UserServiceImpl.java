@@ -5,6 +5,7 @@ import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import lsj.qg.finaltrain.mapper.UserMapper;
 import lsj.qg.finaltrain.pojo.User;
 import lsj.qg.finaltrain.service.UserService;
+import lsj.qg.finaltrain.service.VerifiCodeService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -17,12 +18,20 @@ public class UserServiceImpl implements UserService {
 
     @Autowired
     private UserMapper userMapper;
+    
+    @Autowired
+    private VerifiCodeService verifiCodeService;
 
     private final BCryptPasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
 
     @Override
     public User findByUsername(String username) {
         return userMapper.selectOne(new LambdaQueryWrapper<User>().eq(User::getUsername, username));
+    }
+    
+    @Override
+    public User findByEmail(String email) {
+        return userMapper.selectOne(new LambdaQueryWrapper<User>().eq(User::getEmail, email));
     }
 
     //如果报错回滚事务
@@ -58,6 +67,19 @@ public class UserServiceImpl implements UserService {
         user.setLastLoginTime(LocalDateTime.now());
         return userMapper.insert(user) > 0;
     }
+    
+    //如果报错回滚事务
+    @Transactional
+    @Override
+    public boolean registerWithCode(User user, String confirmPassword, String code) {
+        // 校验验证码
+        if (!verifiCodeService.verifyCode(user.getEmail(), code, "register")) {
+            throw new IllegalArgumentException("验证码错误或已过期");
+        }
+        
+        // 调用原有注册逻辑
+        return register(user, confirmPassword);
+    }
 
     //登录
     @Override
@@ -85,5 +107,63 @@ public class UserServiceImpl implements UserService {
                     .set(User::getLastLoginTime, LocalDateTime.now())
                     .eq(User::getId, user.getId()));
         return user;
+    }
+    
+    @Override
+    public User loginWithCode(String email, String code) {
+        // 校验验证码
+        if (!verifiCodeService.verifyCode(email, code, "login")) {
+            throw new IllegalArgumentException("验证码错误或已过期");
+        }
+        
+        // 查找用户
+        User user = findByEmail(email);
+        if (user == null) {
+            throw new IllegalArgumentException("该邮箱未注册");
+        }
+        
+        if (Integer.valueOf(1).equals(user.getStatus())) {
+            throw new IllegalArgumentException("您已被封禁");
+        }
+        
+        // 更新最后登录时间
+        userMapper.update(null, new LambdaUpdateWrapper<User>()
+                .set(User::getLastLoginTime, LocalDateTime.now())
+                .eq(User::getId, user.getId()));
+        
+        return user;
+    }
+    
+    //如果报错回滚事务
+    @Transactional
+    @Override
+    public boolean resetPassword(String email, String newPassword, String confirmPassword, String code) {
+        // 校验验证码
+        if (!verifiCodeService.verifyCode(email, code, "reset")) {
+            throw new IllegalArgumentException("验证码错误或已过期");
+        }
+        
+        // 校验密码长度
+        if (newPassword.length() < 6 || newPassword.length() > 20) {
+            throw new IllegalArgumentException("密码长度必须在6-20位之间");
+        }
+        
+        // 校验两次密码一致
+        if (!newPassword.equals(confirmPassword)) {
+            throw new IllegalArgumentException("两次密码输入不一致");
+        }
+        
+        // 查找用户
+        User user = findByEmail(email);
+        if (user == null) {
+            throw new IllegalArgumentException("该邮箱未注册");
+        }
+        
+        // 更新密码
+        User update = new User();
+        update.setId(user.getId());
+        update.setPassword(passwordEncoder.encode(newPassword));
+        
+        return userMapper.updateById(update) > 0;
     }
 }

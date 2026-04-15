@@ -16,6 +16,10 @@ spring:
       chat:
         options:
           model: qwen-plus
+  mail:
+    host: smtp.163.com
+    password: MFcaKEUfhQvNTMUa
+    username: 13726466057@163.com
 
 mybatis-plus:
   configuration:
