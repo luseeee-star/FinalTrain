@@ -69,7 +69,8 @@ public class VerifiCodeServiceImpl implements VerifiCodeService {
         String key = buildKey(email, type);
         codeStorage.remove(key);
     }
-    
+
+    //判断是否可以发送验证码
     @Override
     public boolean canSendCode(String email) {
         Long lastSendTime = sendTimeRecord.get(email);

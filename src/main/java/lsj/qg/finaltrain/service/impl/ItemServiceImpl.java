@@ -9,18 +9,27 @@ import lsj.qg.finaltrain.pojo.ItemPost;
 import lsj.qg.finaltrain.pojo.Report;
 import lsj.qg.finaltrain.service.ItemService;
 import lsj.qg.finaltrain.utils.ThreadLocalUtil;
+import com.alibaba.cloud.ai.dashscope.chat.DashScopeChatOptions;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.ai.chat.client.ChatClient;
+import org.springframework.ai.chat.messages.UserMessage;
+import org.springframework.ai.chat.prompt.Prompt;
+import org.springframework.ai.model.Media;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import jakarta.annotation.PostConstruct;
 import reactor.core.publisher.Flux;
+import org.springframework.util.MimeType;
+import org.springframework.util.MimeTypeUtils;
+import org.springframework.core.io.UrlResource;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.net.URI;
+import java.io.File;
 import java.util.List;
 import java.util.Map;
 
@@ -28,6 +37,7 @@ import java.util.Map;
 @Service
 public class ItemServiceImpl implements ItemService {
     private static final Logger log = LoggerFactory.getLogger(ItemServiceImpl.class);
+    private static final String LOCAL_MSG_DIR = "D:\\Java\\FinalTrain\\msg\\";
 
     @Autowired
     private ItemMapper itemMapper;
@@ -80,14 +90,7 @@ public class ItemServiceImpl implements ItemService {
             if (itemPost == null) {
                 throw new NullPointerException("参数不能为空");
             }
-            String type = Integer.valueOf(1).equals(itemPost.getType()) ? "失物" : "拾取";
-            String prompt = "请根据以下失物招领信息生成一段较为详细、客观、易读的AI对于物品的外观、大小或颜色的描述，控制在60字以内，" +
-                    "仅输出描述文本，不要加前缀,不要泄露像密码、身份证号、门牌号等隐私：\n"
-                    + "类型：" + type + "\n"
-                    + "物品名称：" + (itemPost.getItemName() == null ? "" : itemPost.getItemName()) + "\n"
-                    + "地点：" + (itemPost.getLocation() == null ? "" : itemPost.getLocation()) + "\n"
-                    + "时间：" + (itemPost.getEventTime() == null ? "" : itemPost.getEventTime()) + "\n"
-                    + "描述：" + (itemPost.getDescription() == null ? "" : itemPost.getDescription());
+            String prompt = buildAiPrompt(itemPost, true);
 
             //设置限额
             //查询时间
@@ -107,15 +110,89 @@ public class ItemServiceImpl implements ItemService {
             //时间可以让数据库自己生成
             aiUsageLogMapper.insert(log);
 
+            // 有图则走多模态（先一次性生成，再以 SSE 形式返回）
+            if (itemPost.getImageUrl() != null && !itemPost.getImageUrl().trim().isEmpty()) {
+                String ai = generateAiDescription(itemPost);
+                return Flux.just(ai == null ? "" : ai, "[DONE]");
+            }
+
+            // 无图则保留原流式输出
             Flux<String> ai = chatClient.prompt()
                     .user(prompt)
                     .stream()
                     .content();
-            // 将"[DONE]"添加到结果中
             return ai.concatWith(Flux.just("[DONE]"));
         } catch (Exception e) {
             throw new RuntimeException(e.getMessage());
         }
+    }
+
+    private String buildAiPrompt(ItemPost itemPost, boolean allowLonger) {
+        String type = Integer.valueOf(1).equals(itemPost.getType()) ? "失物" : "拾取";
+        String limit = allowLonger ? "控制在60字以内" : "控制在60字以内";
+        return "请根据以下失物招领信息生成一段较为详细、客观、易读的AI对于物品的外观、大小或颜色的描述，" + limit + "，"
+                + "仅输出描述文本，不要加前缀,不要泄露像密码、身份证号、门牌号等隐私：\n"
+                + "类型：" + type + "\n"
+                + "物品名称：" + (itemPost.getItemName() == null ? "" : itemPost.getItemName()) + "\n"
+                + "地点：" + (itemPost.getLocation() == null ? "" : itemPost.getLocation()) + "\n"
+                + "时间：" + (itemPost.getEventTime() == null ? "" : itemPost.getEventTime()) + "\n"
+                + "描述：" + (itemPost.getDescription() == null ? "" : itemPost.getDescription());
+    }
+
+    /**
+     * 同步生成 AI 描述：有图 -> Qwen-VL 多模态；无图 -> 文本模型。
+     */
+    private String generateAiDescription(ItemPost itemPost) throws Exception {
+        if (chatClient == null) return null;
+        if (itemPost == null) return null;
+
+        String prompt = buildAiPrompt(itemPost, true);
+        String rawImageUrl = itemPost.getImageUrl();
+        if (rawImageUrl == null || rawImageUrl.trim().isEmpty()) {
+            return chatClient.prompt().user(prompt).call().content();
+        }
+
+        // 优先使用本地文件（避免 DashScope 无法访问 localhost 的 URL）
+        UrlResource imageResource = null;
+        String trimmed = rawImageUrl.trim();
+        if (trimmed.startsWith("/msg/") && !trimmed.contains("..")) {
+            String filename = trimmed.substring("/msg/".length());
+            File f = new File(LOCAL_MSG_DIR + filename);
+            if (f.exists() && f.isFile()) {
+                imageResource = new UrlResource(f.toURI().toURL());
+            }
+        }
+        // 如果不是本地 msg 文件（或文件不存在），再尝试用可访问的 URL
+        if (imageResource == null) {
+            String imageUrl = rawImageUrl.trim();
+            if (!(imageUrl.startsWith("http://") || imageUrl.startsWith("https://"))) {
+                return chatClient.prompt().user(prompt).call().content();
+            }
+            imageResource = new UrlResource(URI.create(imageUrl).toURL());
+        }
+
+        MimeType mime = guessImageMimeType(rawImageUrl);
+        List<Media> mediaList = List.of(new Media(mime, imageResource));
+
+        UserMessage message = new UserMessage(prompt, mediaList);
+
+        Prompt chatPrompt = new Prompt(
+                message,
+                DashScopeChatOptions.builder()
+                        .withModel("qwen-vl-max-latest")
+                        .withMultiModel(true)
+                        .build()
+        );
+        return chatClient.prompt(chatPrompt).call().content();
+    }
+
+    private MimeType guessImageMimeType(String urlOrPath) {
+        if (urlOrPath == null) return MimeTypeUtils.IMAGE_JPEG;
+        String s = urlOrPath.toLowerCase();
+        if (s.contains(".png")) return MimeTypeUtils.IMAGE_PNG;
+        if (s.contains(".webp")) return MimeTypeUtils.parseMimeType("image/webp");
+        if (s.contains(".gif")) return MimeTypeUtils.parseMimeType("image/gif");
+        return MimeTypeUtils.IMAGE_JPEG;
     }
 
     //信息浏览  1-(丢失)  2-(拾取)

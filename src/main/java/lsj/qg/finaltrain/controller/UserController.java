@@ -1,6 +1,7 @@
 package lsj.qg.finaltrain.controller;
 
 import jakarta.servlet.http.HttpSession;
+import lsj.qg.finaltrain.annotation.CheckRole;
 import lsj.qg.finaltrain.mapper.UserMapper;
 import lsj.qg.finaltrain.pojo.User;
 import lsj.qg.finaltrain.service.UserService;

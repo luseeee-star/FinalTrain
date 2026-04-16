@@ -1,5 +1,6 @@
 package lsj.qg.finaltrain.controller;
 
+import lsj.qg.finaltrain.annotation.CheckRole;
 import lsj.qg.finaltrain.pojo.ItemPost;
 import lsj.qg.finaltrain.service.ManaService;
 import lsj.qg.finaltrain.utils.ResultJson;
@@ -25,12 +26,14 @@ import java.util.Map;
 @RequestMapping("/ManaItems")
 @CrossOrigin(origins = "*")
 public class ManaController {
+    public static final int ADMIN = 1;
 
     @Autowired
     private ManaService manaService;
 
     // 列出用户，支持可选的关键字搜索
     @GetMapping("/users")
+    @CheckRole(ADMIN)
     public ResultJson<List<Map<String, Object>>> listUsers(@RequestParam(value = "keyword", required = false) String keyword) {
         try {
             Long adminId = getCurrentUserId();
@@ -42,6 +45,7 @@ public class ManaController {
 
     // 封禁用户
     @PatchMapping("/users/{userId}/ban")
+    @CheckRole(ADMIN)
     public ResultJson<String> banUser(@PathVariable Long userId) {
         try {
             Long adminId = getCurrentUserId();
@@ -54,6 +58,7 @@ public class ManaController {
 
     // 解封用户
     @PatchMapping("/users/{userId}/unban")
+    @CheckRole(ADMIN)
     public ResultJson<String> unbanUser(@PathVariable Long userId) {
         try {
             Long adminId = getCurrentUserId();
@@ -66,6 +71,7 @@ public class ManaController {
 
     // 删除帖子
     @DeleteMapping("/posts/{postId}")
+    @CheckRole(ADMIN)
     public ResultJson<String> deletePost(@PathVariable Long postId) {
         try {
             Long adminId = getCurrentUserId();
@@ -78,6 +84,7 @@ public class ManaController {
 
     // 删除评论
     @DeleteMapping("/comments/{commentId}")
+    @CheckRole(ADMIN)
     public ResultJson<String> deleteComment(@PathVariable Long commentId) {
         try {
             Long adminId = getCurrentUserId();
@@ -89,6 +96,7 @@ public class ManaController {
     }
 
     @GetMapping("/reports")
+    @CheckRole(ADMIN)
     public ResultJson<List<Map<String, Object>>> listReports(@RequestParam(value = "status", required = false) Integer status) {
         try {
             Long adminId = getCurrentUserId();
@@ -99,6 +107,7 @@ public class ManaController {
     }
 
     @PatchMapping("/reports/{reportId}/process")
+    @CheckRole(ADMIN)
     public ResultJson<String> processReport(@PathVariable Long reportId) {
         try {
             Long adminId = getCurrentUserId();
@@ -111,6 +120,7 @@ public class ManaController {
 
     // 获取统计信息，包括帖子数量、找回数量、活跃用户数量等
     @GetMapping("/stats")
+    @CheckRole(ADMIN)
     public ResultJson<Map<String, Object>> stats(
             @RequestParam(value = "type", required = false) Integer type,
             @RequestParam(value = "status", required = false) Integer status,
@@ -143,6 +153,7 @@ public class ManaController {
 
     // 列出置顶请求
     @GetMapping("/pins/requests")
+    @CheckRole(ADMIN)
     public ResultJson<List<ItemPost>> listPinRequests() {
         try {
             Long adminId = getCurrentUserId();
@@ -154,6 +165,7 @@ public class ManaController {
 
     // 批准置顶请求
     @PatchMapping("/pins/{postId}/approve")
+    @CheckRole(ADMIN)
     public ResultJson<String> approvePin(@PathVariable Long postId) {
         try {
             Long adminId = getCurrentUserId();
@@ -166,6 +178,7 @@ public class ManaController {
 
     // 驳回置顶请求
     @PatchMapping("/pins/{postId}/reject")
+    @CheckRole(ADMIN)
     public ResultJson<String> rejectPin(@PathVariable Long postId) {
         try {
             Long adminId = getCurrentUserId();
@@ -177,6 +190,7 @@ public class ManaController {
     }
 
     @GetMapping(value = "/AiAnalyze", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+    @CheckRole(ADMIN)
     public Flux<String> AiAnalyze() {
         return manaService.AiAnalyze();
     }

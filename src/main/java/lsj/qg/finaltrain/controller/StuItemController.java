@@ -86,13 +86,45 @@ public class StuItemController {
         }
     }
 
-     // 生成 AI 描述
-     //前端在用户未提交表单时调用，用于实时预览。          告诉前端是流式输出
-    @PostMapping(value = "/ai/preview", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
-    public Flux<String> CreateAiDescription(@RequestBody ItemPost itemPost) {
-        Map<String, String> map = ThreadLocalUtil.get();
-        Long userId = (long) Integer.parseInt(map.get("userid"));
-        return itemService.AIdescription(itemPost, userId);
+    // 生成 AI 描述（手动触发，支持携带图片文件）
+    @PostMapping(value = "/ai/preview", consumes = MediaType.MULTIPART_FORM_DATA_VALUE, produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+    public Flux<String> CreateAiDescription(
+            @RequestParam Map<String, String> form,
+            @RequestParam(value = "file", required = false) MultipartFile file) {
+        try {
+            Map<String, String> map = ThreadLocalUtil.get();
+            Long userId = (long) Integer.parseInt(map.get("userid"));
+
+            ItemPost itemPost = new ItemPost();
+            itemPost.setType(form.get("type") == null ? 1 : Integer.parseInt(form.get("type")));
+            itemPost.setItemName(form.get("itemName"));
+            itemPost.setLocation(form.get("location"));
+            if (form.get("eventTime") != null && !form.get("eventTime").trim().isEmpty()) {
+                itemPost.setEventTime(LocalDateTime.parse(form.get("eventTime")));
+            }
+            itemPost.setDescription(form.get("description"));
+            itemPost.setImageUrl(form.get("imageUrl"));
+
+            // 预览时如带文件，先临时落到 /msg，供 AI 多模态读取（不入库）
+            if (file != null && !file.isEmpty()) {
+                String originalfileName = file.getOriginalFilename();
+                String ext = ".jpg";
+                if (originalfileName != null && originalfileName.lastIndexOf('.') >= 0) {
+                    ext = originalfileName.substring(originalfileName.lastIndexOf('.'));
+                }
+                String fileName = UUID.randomUUID() + ext;
+                File dir = new File(IMAGE_DIR);
+                if (!dir.exists()) {
+                    dir.mkdirs();
+                }
+                file.transferTo(new File(IMAGE_DIR + fileName));
+                itemPost.setImageUrl("/msg/" + fileName);
+            }
+
+            return itemService.AIdescription(itemPost, userId);
+        } catch (Exception e) {
+            return Flux.just("生成失败：" + e.getMessage(), "[DONE]");
+        }
     }
 
     @GetMapping("/selectByType")

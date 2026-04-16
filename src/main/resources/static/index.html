@@ -740,7 +740,7 @@
                 return true;
             }
 
-            async function generateAiDesc(payload, isEditMode = false) {
+            async function generateAiDesc(payload, isEditMode = false, file = null) {
                 aiGenerating.value = true;
                 if (isEditMode && editingPost.value) {
                     editingPost.value.aiDescription = '';
@@ -750,13 +750,21 @@
                 try {
                     const baseURL = (window.httpClient && window.httpClient.baseURL) || window.location.origin || '';
                     const url = baseURL ? (baseURL + '/StuItems/ai/preview') : '/StuItems/ai/preview';
+                    const formData = new FormData();
+                    Object.keys(payload || {}).forEach(function (k) {
+                        if (payload[k] !== undefined && payload[k] !== null && payload[k] !== '') {
+                            formData.append(k, payload[k]);
+                        }
+                    });
+                    if (file) {
+                        formData.append('file', file);
+                    }
                     const response = await fetch(url, {
                         method: 'POST',
                         headers: {
-                            'Content-Type': 'application/json',
                             'Authorization': sessionStorage.getItem('token')
                         },
-                        body: JSON.stringify(payload)
+                        body: formData
                     });
                     if (!response.ok) {
                         const errorText = await response.text();
@@ -801,9 +809,10 @@
                         itemName: createForm.value.itemName,
                         location: createForm.value.location,
                         eventTime: eventTime,
-                        description: createForm.value.description
+                        description: createForm.value.description,
+                        imageUrl: createForm.value.imageUrl
                     };
-                    await generateAiDesc(payload, false);
+                    await generateAiDesc(payload, false, selectedImageFile.value);
                 } catch (e) {
                     alert('生成失败：' + (e && e.message ? e.message : '请稍后重试'));
                 }
@@ -866,9 +875,10 @@
                         itemName: editingPost.value.itemName,
                         location: editingPost.value.location,
                         eventTime: eventTime,
-                        description: editingPost.value.description
+                        description: editingPost.value.description,
+                        imageUrl: editingPost.value.imageUrl
                     };
-                    await generateAiDesc(payload, true);
+                    await generateAiDesc(payload, true, null);
                 } catch (e) {
                     alert('生成失败：' + (e && e.message ? e.message : '请稍后重试'));
                 }
