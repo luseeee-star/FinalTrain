@@ -81,8 +81,10 @@ public class StuItemController {
 
             itemService.InsertItem(itemPost,userid);
             return ResultJson.success("添加成功");
-        } catch (Exception e) {
+        } catch (IllegalArgumentException | NullPointerException e) {
             return ResultJson.error(e.getMessage());
+        } catch (Exception e) {
+            return ResultJson.systemError();
         }
     }
 
@@ -122,8 +124,10 @@ public class StuItemController {
             }
 
             return itemService.AIdescription(itemPost, userId);
-        } catch (Exception e) {
+        } catch (IllegalArgumentException | NullPointerException e) {
             return Flux.just("生成失败：" + e.getMessage(), "[DONE]");
+        } catch (Exception e) {
+            return Flux.just("生成失败：系统繁忙，请稍后重试", "[DONE]");
         }
     }
 
@@ -133,8 +137,10 @@ public class StuItemController {
             List<ItemPost> list = itemService.SelectByType(type);
             enrichPostsUserInfo(list);
             return ResultJson.success(list);
-        } catch (Exception e) {
+        } catch (IllegalArgumentException | NullPointerException e) {
             return ResultJson.error(e.getMessage());
+        } catch (Exception e) {
+            return ResultJson.systemError();
         }
     }
 
@@ -146,8 +152,10 @@ public class StuItemController {
             report.setReporterId(userid);
             itemService.InsertReport(report);
             return ResultJson.success("举报成功");
-        } catch (Exception e) {
+        } catch (IllegalArgumentException | NullPointerException e) {
             return ResultJson.error(e.getMessage());
+        } catch (Exception e) {
+            return ResultJson.systemError();
         }
     }
 
@@ -157,8 +165,10 @@ public class StuItemController {
             List<ItemPost> list = itemService.SelectById();
             enrichPostsUserInfo(list);
             return ResultJson.success(list);
-        } catch (Exception e) {
+        } catch (IllegalArgumentException | NullPointerException e) {
             return ResultJson.error(e.getMessage());
+        } catch (Exception e) {
+            return ResultJson.systemError();
         }
     }
 
@@ -168,8 +178,61 @@ public class StuItemController {
             ItemPost post = itemService.SelectPostById(postId);
             enrichPostUserInfo(post);
             return ResultJson.success(post);
-        } catch (Exception e) {
+        } catch (IllegalArgumentException | NullPointerException e) {
             return ResultJson.error(e.getMessage());
+        } catch (Exception e) {
+            return ResultJson.systemError();
+        }
+    }
+
+    @PostMapping("/claims")
+    public ResultJson<String> submitClaim(@RequestBody Map<String, Object> payload) {
+        try {
+            Object postIdObj = payload == null ? null : payload.get("postId");
+            Long postId = postIdObj == null ? null : Long.parseLong(String.valueOf(postIdObj));
+            String verificationAnswer = payload == null ? null : String.valueOf(payload.get("verificationAnswer"));
+            itemService.submitClaim(postId, verificationAnswer);
+            return ResultJson.success("申请已提交，请等待发帖者审核");
+        } catch (IllegalArgumentException | NullPointerException e) {
+            return ResultJson.error(e.getMessage());
+        } catch (Exception e) {
+            return ResultJson.systemError();
+        }
+    }
+
+    @GetMapping("/claims/owner")
+    public ResultJson<List<Map<String, Object>>> listOwnerClaims() {
+        try {
+            return ResultJson.success(itemService.listOwnerClaims());
+        } catch (IllegalArgumentException | NullPointerException e) {
+            return ResultJson.error(e.getMessage());
+        } catch (Exception e) {
+            return ResultJson.systemError();
+        }
+    }
+
+    @GetMapping("/claims/my")
+    public ResultJson<List<Map<String, Object>>> listMyClaims() {
+        try {
+            return ResultJson.success(itemService.listMyClaims());
+        } catch (IllegalArgumentException | NullPointerException e) {
+            return ResultJson.error(e.getMessage());
+        } catch (Exception e) {
+            return ResultJson.systemError();
+        }
+    }
+
+    @PatchMapping("/claims/{claimId}/review")
+    public ResultJson<String> reviewClaim(@PathVariable Long claimId, @RequestBody Map<String, Object> payload) {
+        try {
+            Integer action = payload == null || payload.get("action") == null ? null : Integer.parseInt(String.valueOf(payload.get("action")));
+            String feedback = payload == null ? null : (String) payload.get("feedback");
+            itemService.reviewClaim(claimId, action, feedback);
+            return ResultJson.success("处理成功");
+        } catch (IllegalArgumentException | NullPointerException e) {
+            return ResultJson.error(e.getMessage());
+        } catch (Exception e) {
+            return ResultJson.systemError();
         }
     }
 
@@ -178,8 +241,10 @@ public class StuItemController {
         try {
             itemService.UpdateItemPinned(postId);
             return ResultJson.success("发送申请成功");
-        } catch (Exception e) {
+        } catch (IllegalArgumentException | NullPointerException e) {
             return ResultJson.error(e.getMessage());
+        } catch (Exception e) {
+            return ResultJson.systemError();
         }
     }
 
@@ -188,8 +253,10 @@ public class StuItemController {
         try {
             itemService.UpdateItem(itemPost);
             return ResultJson.success("更新成功");
-        } catch (Exception e) {
+        } catch (IllegalArgumentException | NullPointerException e) {
             return ResultJson.error(e.getMessage());
+        } catch (Exception e) {
+            return ResultJson.systemError();
         }
     }
 
@@ -198,8 +265,10 @@ public class StuItemController {
         try {
             itemService.DeleteItem(postId);
             return ResultJson.success("删除成功");
-        } catch (Exception e) {
+        } catch (IllegalArgumentException | NullPointerException e) {
             return ResultJson.error(e.getMessage());
+        } catch (Exception e) {
+            return ResultJson.systemError();
         }
     }
 
@@ -208,8 +277,10 @@ public class StuItemController {
         try {
             itemService.SetFound(postId);
             return ResultJson.success("发送申请成功");
-        } catch (Exception e) {
+        } catch (IllegalArgumentException | NullPointerException e) {
             return ResultJson.error(e.getMessage());
+        } catch (Exception e) {
+            return ResultJson.systemError();
         }
     }
 

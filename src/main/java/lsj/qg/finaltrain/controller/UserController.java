@@ -61,7 +61,7 @@ public class UserController {
         } catch (IllegalArgumentException e) {
             return ResultJson.error(e.getMessage());
         } catch (Exception e) {
-            return ResultJson.error("注册失败");
+            return ResultJson.systemError();
         }
     }
     
@@ -91,7 +91,7 @@ public class UserController {
             
             return ResultJson.success("验证码已发送");
         } catch (Exception e) {
-            return ResultJson.error("发送失败：" + e.getMessage());
+            return ResultJson.systemError();
         }
     }
     
@@ -117,7 +117,7 @@ public class UserController {
         } catch (IllegalArgumentException e) {
             return ResultJson.error(e.getMessage());
         } catch (Exception e) {
-            return ResultJson.error("注册失败");
+            return ResultJson.systemError();
         }
     }
 
@@ -151,7 +151,7 @@ public class UserController {
         } catch (IllegalArgumentException e) {
             return ResultJson.error(e.getMessage());
         } catch (Exception e) {
-            return ResultJson.error("登录失败");
+            return ResultJson.systemError();
         }
     }
     
@@ -181,7 +181,7 @@ public class UserController {
             
             return ResultJson.success("验证码已发送");
         } catch (Exception e) {
-            return ResultJson.error("发送失败：" + e.getMessage());
+            return ResultJson.systemError();
         }
     }
     
@@ -215,7 +215,7 @@ public class UserController {
         } catch (IllegalArgumentException e) {
             return ResultJson.error(e.getMessage());
         } catch (Exception e) {
-            return ResultJson.error("登录失败");
+            return ResultJson.systemError();
         }
     }
     
@@ -245,7 +245,7 @@ public class UserController {
             
             return ResultJson.success("验证码已发送");
         } catch (Exception e) {
-            return ResultJson.error("发送失败：" + e.getMessage());
+            return ResultJson.systemError();
         }
     }
     
@@ -263,7 +263,7 @@ public class UserController {
         } catch (IllegalArgumentException e) {
             return ResultJson.error(e.getMessage());
         } catch (Exception e) {
-            return ResultJson.error("密码重置失败");
+            return ResultJson.systemError();
         }
     }
 
@@ -286,7 +286,7 @@ public class UserController {
             data.put("phone", user.getPhone());
             return ResultJson.success("查询成功", data);
         } catch (Exception e) {
-            return ResultJson.error("查询失败");
+            return ResultJson.systemError();
         }
     }
 
@@ -329,7 +329,7 @@ public class UserController {
             userMapper.updateById(update);
             return ResultJson.success("更新成功");
         } catch (Exception e) {
-            return ResultJson.error("更新失败");
+            return ResultJson.systemError();
         }
     }
 }

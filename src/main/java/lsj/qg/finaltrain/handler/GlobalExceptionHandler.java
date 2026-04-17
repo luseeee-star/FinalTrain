@@ -3,7 +3,6 @@ package lsj.qg.finaltrain.handler;
 import lsj.qg.finaltrain.utils.ResultJson;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
@@ -14,6 +13,6 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(Exception.class)
     public ResultJson handleException(Exception e) {
         log.error("全局异常捕获 - 异常类型: {}, 错误信息: {}", e.getClass().getSimpleName(), e.getMessage(), e);
-        return ResultJson.error(StringUtils.hasLength(e.getMessage()) ? e.getMessage() : "操作失败");
+        return ResultJson.systemError();
     }
 }

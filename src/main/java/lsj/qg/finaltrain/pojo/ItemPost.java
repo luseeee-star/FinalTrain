@@ -41,4 +41,10 @@ public class ItemPost {
 
     @TableField(exist = false)
     private String userAvatarUrl;
+
+    @TableField(exist = false)
+    private Boolean canViewContact;
+
+    @TableField(exist = false)
+    private Integer myClaimStatus;
 }

@@ -48,10 +48,16 @@
         <div class="author-inline">
             <img v-if="post.userAvatarUrl" :src="resolveImageUrl(post.userAvatarUrl)" alt="头像" class="author-avatar">
             <span>发布者：{{ post.userNickname || ('用户' + post.userId) }}</span>
-            <button class="pm-btn" @click="goPrivateChat(post.userId, post.userNickname || ('用户' + post.userId))">私信</button>
+            <button class="pm-btn" v-if="post.canViewContact && !isSelfUser(post.userId)" @click="goPrivateChat(post.userId, post.userNickname || ('用户' + post.userId))">私信</button>
         </div>
         <div class="desc">{{ post.description || '暂无描述' }}</div>
         <div class="meta" style="margin-top: 10px;">联系方式：{{ post.contactInfo || '未公开' }}</div>
+        <div v-if="!post.canViewContact && !isSelfUser(post.userId)" style="margin-top: 10px;">
+            <button class="btn btn-primary" @click="applyClaim">{{ post.type === 1 ? '申请认领' : '申请拾取' }}</button>
+            <span class="hint" v-if="post.myClaimStatus != null" style="margin-left: 10px;">
+                当前申请状态：{{ claimStatusText(post.myClaimStatus) }}
+            </span>
+        </div>
         <img v-if="post.imageUrl" :src="resolveImageUrl(post.imageUrl)" alt="物品图片" class="img">
     </div>
 
@@ -67,7 +73,7 @@
                 <div class="comment-head">
                     <img v-if="c.senderAvatarUrl" :src="resolveImageUrl(c.senderAvatarUrl)" alt="头像" class="comment-avatar">
                     <div class="comment-name">{{ c.senderName || ('用户' + c.senderId) }}</div>
-                    <button class="pm-btn" @click="goPrivateChat(c.senderId, c.senderName || ('用户' + c.senderId))">私信</button>
+                    <button class="pm-btn" v-if="!isSelfUser(c.senderId)" @click="goPrivateChat(c.senderId, c.senderName || ('用户' + c.senderId))">私信</button>
                 </div>
                 <div>{{ c.content }}</div>
                 <div class="comment-time">{{ formatTime(c.createTime) }}</div>
@@ -121,6 +127,11 @@
                 return window.location.origin + (url.startsWith('/') ? url : ('/' + url));
             }
 
+            function isSelfUser(userId) {
+                if (userId == null || currentUserId.value == null) return false;
+                return String(userId) === String(currentUserId.value);
+            }
+
             async function safeRequest(url, method, data, config) {
                 const resp = await window.httpClient.request(url, method, data, config);
                 if (!resp || resp.code !== 200) {
@@ -131,6 +142,26 @@
 
             async function loadPost() {
                 post.value = await safeRequest('/StuItems/detail/' + encodeURIComponent(postId.value), 'GET');
+            }
+
+            function claimStatusText(status) {
+                if (status === 0) return '待审核';
+                if (status === 1) return '已同意';
+                if (status === 2) return '已拒绝';
+                if (status === 3) return '需补充证据';
+                return '未知';
+            }
+
+            async function applyClaim() {
+                if (!post.value || !post.value.id) return;
+                const answer = prompt('请输入核验答案（例如物品仅失主知道的细节）');
+                if (!answer || !answer.trim()) return;
+                await safeRequest('/StuItems/claims', 'POST', {
+                    postId: post.value.id,
+                    verificationAnswer: answer.trim()
+                });
+                alert('申请已提交，请等待发帖者审核');
+                await loadPost();
             }
 
             async function loadComments() {
@@ -180,6 +211,7 @@
 
             function goPrivateChat(friendId, name) {
                 if (!friendId) return;
+                if (isSelfUser(friendId)) return;
                 const nickname = name || ('用户' + friendId);
                 // 跳转到主页的消息中心，并带上目标用户 ID
                 window.location.href = `index.html?chatWithId=${encodeURIComponent(friendId)}&chatWithName=${encodeURIComponent(nickname)}`;
@@ -206,9 +238,13 @@
                 post,
                 comments,
                 commentText,
+                currentUserId,
                 formatTime,
                 resolveImageUrl,
+                isSelfUser,
                 goPrivateChat,
+                applyClaim,
+                claimStatusText,
                 sendComment,
                 backToHome
             };

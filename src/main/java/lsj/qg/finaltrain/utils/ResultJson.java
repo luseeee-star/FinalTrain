@@ -34,6 +34,11 @@ public class ResultJson<T> {
         return new ResultJson<>(500, msg, null);
     }
 
+    // 失败：系统异常（固定文案，避免暴露后端细节）
+    public static <T> ResultJson<T> systemError() {
+        return new ResultJson<>(500, "系统繁忙，请稍后重试", null);
+    }
+
     // 失败：自定义状态码 + 消息
     public static <T> ResultJson<T> error(Integer code, String msg) {
         return new ResultJson<>(code, msg, null);

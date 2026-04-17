@@ -38,8 +38,10 @@ public class ManaController {
         try {
             Long adminId = getCurrentUserId();
             return ResultJson.success(manaService.listUsers(adminId, keyword));
-        } catch (Exception e) {
+        } catch (IllegalArgumentException | NullPointerException e) {
             return ResultJson.error(e.getMessage());
+        } catch (Exception e) {
+            return ResultJson.systemError();
         }
     }
 
@@ -51,8 +53,10 @@ public class ManaController {
             Long adminId = getCurrentUserId();
             manaService.banUser(adminId, userId);
             return ResultJson.success("封禁成功", null);
-        } catch (Exception e) {
+        } catch (IllegalArgumentException | NullPointerException e) {
             return ResultJson.error(e.getMessage());
+        } catch (Exception e) {
+            return ResultJson.systemError();
         }
     }
 
@@ -64,8 +68,10 @@ public class ManaController {
             Long adminId = getCurrentUserId();
             manaService.unbanUser(adminId, userId);
             return ResultJson.success("解封成功", null);
-        } catch (Exception e) {
+        } catch (IllegalArgumentException | NullPointerException e) {
             return ResultJson.error(e.getMessage());
+        } catch (Exception e) {
+            return ResultJson.systemError();
         }
     }
 
@@ -77,8 +83,10 @@ public class ManaController {
             Long adminId = getCurrentUserId();
             manaService.deletePost(adminId, postId);
             return ResultJson.success("删除成功", null);
-        } catch (Exception e) {
+        } catch (IllegalArgumentException | NullPointerException e) {
             return ResultJson.error(e.getMessage());
+        } catch (Exception e) {
+            return ResultJson.systemError();
         }
     }
 
@@ -90,8 +98,10 @@ public class ManaController {
             Long adminId = getCurrentUserId();
             manaService.deleteComment(adminId, commentId);
             return ResultJson.success("删除成功", null);
-        } catch (Exception e) {
+        } catch (IllegalArgumentException | NullPointerException e) {
             return ResultJson.error(e.getMessage());
+        } catch (Exception e) {
+            return ResultJson.systemError();
         }
     }
 
@@ -101,8 +111,10 @@ public class ManaController {
         try {
             Long adminId = getCurrentUserId();
             return ResultJson.success(manaService.listReports(adminId, status));
-        } catch (Exception e) {
+        } catch (IllegalArgumentException | NullPointerException e) {
             return ResultJson.error(e.getMessage());
+        } catch (Exception e) {
+            return ResultJson.systemError();
         }
     }
 
@@ -113,8 +125,10 @@ public class ManaController {
             Long adminId = getCurrentUserId();
             manaService.processReport(adminId, reportId);
             return ResultJson.success("处理成功", null);
-        } catch (Exception e) {
+        } catch (IllegalArgumentException | NullPointerException e) {
             return ResultJson.error(e.getMessage());
+        } catch (Exception e) {
+            return ResultJson.systemError();
         }
     }
 
@@ -146,8 +160,10 @@ public class ManaController {
             data.put("activeStart", startTime);
             data.put("activeEnd", endTime);
             return ResultJson.success(data);
-        } catch (Exception e) {
+        } catch (IllegalArgumentException | NullPointerException e) {
             return ResultJson.error(e.getMessage());
+        } catch (Exception e) {
+            return ResultJson.systemError();
         }
     }
 
@@ -158,8 +174,10 @@ public class ManaController {
         try {
             Long adminId = getCurrentUserId();
             return ResultJson.success(manaService.listPinRequests(adminId));
-        } catch (Exception e) {
+        } catch (IllegalArgumentException | NullPointerException e) {
             return ResultJson.error(e.getMessage());
+        } catch (Exception e) {
+            return ResultJson.systemError();
         }
     }
 
@@ -171,8 +189,10 @@ public class ManaController {
             Long adminId = getCurrentUserId();
             manaService.approvePin(adminId, postId);
             return ResultJson.success("审核通过", null);
-        } catch (Exception e) {
+        } catch (IllegalArgumentException | NullPointerException e) {
             return ResultJson.error(e.getMessage());
+        } catch (Exception e) {
+            return ResultJson.systemError();
         }
     }
 
@@ -184,8 +204,10 @@ public class ManaController {
             Long adminId = getCurrentUserId();
             manaService.rejectPin(adminId, postId);
             return ResultJson.success("已驳回", null);
-        } catch (Exception e) {
+        } catch (IllegalArgumentException | NullPointerException e) {
             return ResultJson.error(e.getMessage());
+        } catch (Exception e) {
+            return ResultJson.systemError();
         }
     }
 

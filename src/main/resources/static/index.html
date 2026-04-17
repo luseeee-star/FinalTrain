@@ -49,6 +49,8 @@
         .post-actions { margin-top: 12px; }
         .empty { color: #6b7280; text-align: center; padding: 24px 0; }
         .hint { font-size: 13px; color: #6b7280; }
+        .claim-status { font-size: 12px; color: #6b7280; margin-top: 6px; }
+        .claim-card { border: 1px solid #e5e7eb; border-radius: 10px; padding: 10px; margin-top: 10px; background: #fafafa; }
 
         /* ======== 新增：消息中心布局样式 ======== */
         .message-center-layout { padding: 0 !important; overflow: hidden; height: 600px; display: flex; }
@@ -269,7 +271,12 @@
                     <div class="author-inline">
                         <img v-if="post.userAvatarUrl" :src="resolveImageUrl(post.userAvatarUrl)" alt="头像" class="author-avatar">
                         <span>{{ post.userNickname || ('用户' + post.userId) }}</span>
-                        <button v-if="Number(post.userId) !== currentUserId" class="pm-btn" @click.stop="goPrivateChat(post.userId, post.userNickname || ('用户' + post.userId))">私信</button>
+                        <button
+                                v-if="!isSelfUser(post.userId) && canChatWithOwner(post)"
+                                class="pm-btn"
+                                @click.stop="goPrivateChat(post.userId, post.userNickname || ('用户' + post.userId))">
+                            私信
+                        </button>
                     </div>
                     <div class="post-meta">
                         地点：{{ post.location || '未填写' }} ｜ 时间：{{ formatTime(post.eventTime || post.createTime) }}
@@ -277,6 +284,12 @@
                     <div class="post-desc">{{ post.description || '暂无描述' }}</div>
                     <div class="post-actions">
                         <button v-if="!currentUserId || Number(post.userId) !== currentUserId" class="btn btn-warning" @click.stop="openReport(post)">举报</button>
+                        <button v-if="currentUserId && Number(post.userId) !== currentUserId" class="btn btn-primary" @click.stop="openClaimApply(post)">
+                            {{ post.type === 1 ? '申请认领' : '申请拾取' }}
+                        </button>
+                        <div class="claim-status" v-if="myClaimStatusMap[post.id] != null">
+                            申请状态：{{ claimStatusText(myClaimStatusMap[post.id]) }}
+                        </div>
                     </div>
                 </div>
                 <div v-if="filteredPosts.length === 0" class="empty">暂无符合条件的帖子</div>
@@ -301,6 +314,20 @@
                     </div>
                 </div>
                 <div v-if="myPosts.length === 0" class="empty">你还没有可管理的帖子</div>
+            </div>
+            <div style="margin-top: 16px;">
+                <h4 style="margin: 0 0 10px;">认领/拾取申请审核</h4>
+                <div class="claim-card" v-for="c in ownerClaims" :key="'owner-claim-' + c.id">
+                    <div><strong>{{ c.itemName || ('帖子' + c.itemPostId) }}</strong>（{{ c.itemType === 1 ? '失物' : '拾取' }}）</div>
+                    <div class="hint">申请人ID：{{ c.applicantId }} ｜ 核验答案：{{ c.verificationAnswer || '—' }}</div>
+                    <div class="hint">状态：{{ claimStatusText(c.status) }} <span v-if="c.feedback">｜ 反馈：{{ c.feedback }}</span></div>
+                    <div style="margin-top:8px;" v-if="c.status === 0 || c.status === 3">
+                        <button class="btn btn-primary" @click="reviewClaim(c, 1)">同意</button>
+                        <button class="btn btn-danger" @click="reviewClaim(c, 2)">拒绝</button>
+                        <button class="btn btn-warning" @click="reviewClaim(c, 3)">要求补充证据</button>
+                    </div>
+                </div>
+                <div v-if="ownerClaims.length === 0" class="hint">暂无待审核申请</div>
             </div>
         </section>
 
@@ -411,6 +438,9 @@
             const pinSubmitting = ref({});
             const aiGenerating = ref(false);
             const foundSubmitting = ref({});
+            const ownerClaims = ref([]);
+            const myClaims = ref([]);
+            const myClaimStatusMap = ref({});
 
             const createForm = ref({
                 type: 1, itemName: '', location: '', eventTime: '', description: '', aiDescription: '', contactInfo: ''
@@ -680,8 +710,14 @@
                 });
             }
 
+            function isSelfUser(userId) {
+                if (userId == null || currentUserId.value == null) return false;
+                return String(userId) === String(currentUserId.value);
+            }
+
             function goPrivateChat(friendId, name) {
                 if (!friendId) return;
+                if (isSelfUser(friendId)) return;
                 activeTab.value = 'messages';
                 selectChat({ friendId: friendId, friendName: name });
             }
@@ -711,7 +747,99 @@
                     const found = await safeRequest('/StuItems/selectByType?type=2', 'GET');
                     posts.value = (lost || []).concat(found || []);
                     myPosts.value = posts.value.filter(p => currentUserId.value && Number(p.userId) === currentUserId.value);
+                    await loadMyClaims();
+                    await loadOwnerClaims();
                 } catch (e) { globalMsg.value = '加载失败'; }
+            }
+
+            function canChatWithOwner(post) {
+                if (!post) return false;
+                if (!currentUserId.value) return false;
+                if (isSelfUser(post.userId)) return false;
+                const st = myClaimStatusMap.value ? myClaimStatusMap.value[post.id] : null;
+                return Number(st) === 1;
+            }
+
+            function claimStatusText(status) {
+                if (status === 0) return '待审核';
+                if (status === 1) return '已同意';
+                if (status === 2) return '已拒绝';
+                if (status === 3) return '需补充证据';
+                return '未知';
+            }
+
+            async function loadOwnerClaims() {
+                try {
+                    ownerClaims.value = await safeRequest('/StuItems/claims/owner', 'GET') || [];
+                } catch (e) {
+                    ownerClaims.value = [];
+                }
+            }
+
+            async function loadMyClaims() {
+                try {
+                    myClaims.value = await safeRequest('/StuItems/claims/my', 'GET') || [];
+                    const map = {};
+                    (myClaims.value || []).forEach(c => {
+                        if (c && c.itemPostId != null && map[c.itemPostId] == null) {
+                            map[c.itemPostId] = c.status;
+                        }
+                    });
+                    myClaimStatusMap.value = map;
+                } catch (e) {
+                    myClaims.value = [];
+                    myClaimStatusMap.value = {};
+                }
+            }
+
+            async function openClaimApply(post) {
+                if (!post || !post.id) return;
+                const tip = post.type === 1 ? '请输入核验答案（仅失主知道的特征）' : '请输入核验答案（说明为何应由你拾取）';
+                const answer = prompt(tip);
+                if (!answer || !answer.trim()) return;
+                try {
+                    await safeRequest('/StuItems/claims', 'POST', {
+                        postId: post.id,
+                        verificationAnswer: answer.trim()
+                    });
+                    alert('申请已提交，请等待对方审核');
+                    await loadMyClaims();
+                } catch (e) {
+                    alert('申请失败：' + (e && e.message ? e.message : '请稍后重试'));
+                }
+            }
+
+            async function openReport(post) {
+                if (!post || !post.id) return;
+                const reason = prompt('请输入举报原因');
+                if (!reason || !reason.trim()) return;
+                try {
+                    await safeRequest('/StuItems/reports', 'POST', {
+                        postId: post.id,
+                        reason: reason.trim(),
+                        status: 0
+                    });
+                    alert('举报已提交');
+                } catch (e) {
+                    alert('举报失败：' + (e && e.message ? e.message : '请稍后重试'));
+                }
+            }
+
+            async function reviewClaim(claim, action) {
+                if (!claim || !claim.id) return;
+                let feedback = '';
+                if (action !== 1) {
+                    feedback = prompt(action === 2 ? '请输入拒绝理由（可选）' : '请输入补充证据要求（建议填写）') || '';
+                }
+                try {
+                    await safeRequest('/StuItems/claims/' + claim.id + '/review', 'PATCH', {
+                        action: action,
+                        feedback: feedback
+                    });
+                    await loadOwnerClaims();
+                } catch (e) {
+                    alert('处理失败：' + (e && e.message ? e.message : '请稍后重试'));
+                }
             }
 
             async function createPost() {
@@ -958,7 +1086,8 @@
                 onProfileImageChange, saveProfile, goPrivateChat, goToDetail, startEdit, saveEdit,
                 removePost, loadMyLostPosts, applyPin, logout, goToMessages, selectChat, sendPrivateMsg,
                 confirmDeleteChat, fetchTotalUnread, isPinSubmitting, replaceCreateDescWithAi, replaceEditDescWithAi,
-                generateCreateAiDesc, generateEditAiDesc, aiGenerating, canGenerateAi, markAsFound, isFoundSubmitting
+                generateCreateAiDesc, generateEditAiDesc, aiGenerating, canGenerateAi, markAsFound, isFoundSubmitting,
+                openClaimApply, reviewClaim, claimStatusText, ownerClaims, myClaimStatusMap, openReport, canChatWithOwner, isSelfUser
             };
         }
     }).mount('#app');
