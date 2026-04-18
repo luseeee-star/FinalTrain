@@ -152,7 +152,8 @@ public class ItemServiceImpl implements ItemService {
         String type = Integer.valueOf(1).equals(itemPost.getType()) ? "失物" : "拾取";
         String limit = allowLonger ? "控制在60字以内" : "控制在60字以内";
         return "请根据以下失物招领信息生成一段较为详细、客观、易读的AI对于物品的外观、大小或颜色的描述，" + limit + "，"
-                + "仅输出描述文本，不要加前缀,不要泄露像密码、身份证号、门牌号等隐私：\n"
+                + "仅输出描述文本，不要加前缀。"
+                + "不要泄露像密码、身份证号、门牌号等任何数字信息或其它隐私：\n"
                 + "类型：" + type + "\n"
                 + "物品名称：" + (itemPost.getItemName() == null ? "" : itemPost.getItemName()) + "\n"
                 + "地点：" + (itemPost.getLocation() == null ? "" : itemPost.getLocation()) + "\n"

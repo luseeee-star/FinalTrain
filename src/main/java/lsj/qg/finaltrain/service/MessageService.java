@@ -15,4 +15,6 @@ public interface MessageService {
     List<Map<String, Object>> getChatSessions(Long userId);
 
     void deleteSession(Long userId, Long friendId);
+
+    void markAsRead(Long userId, Long friendId);
 }

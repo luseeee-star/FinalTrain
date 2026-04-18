@@ -201,7 +201,7 @@
                     createTime: new Date().toISOString()
                 };
                 wsRef.value.send(JSON.stringify(message));
-                comments.value.push(Object.assign({ senderName: '我' }, message));
+                // 不立即添加到列表，等待 WebSocket 回传后再添加，避免重复
                 commentText.value = '';
             }
 

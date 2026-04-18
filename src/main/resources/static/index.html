@@ -542,15 +542,15 @@
             // ======== 新增：完整的消息中心方法 ========
             async function goToMessages() {
                 activeTab.value = 'messages';
+                // 清除当前选中的联系人，让用户手动选择
+                currentChatFriendId.value = null;
+                currentChatName.value = '';
+                privateMessages.value = [];
                 try {
                     const list = await safeRequest('/message/sessions', 'GET');
                     chatList.value = list || [];
                     // 切换到消息中心时也顺便更新一下总数
                     fetchTotalUnread();
-                    // 如果当前已经选中了某个好友，切换回来时自动滚到底部
-                    if (currentChatFriendId.value) {
-                        scrollToBottom();
-                    }
                 } catch (e) { globalMsg.value = '加载联系人失败'; }
             }
 
@@ -585,22 +585,46 @@
                             const isFromCurrentFriend = Number(sId) === Number(currentChatFriendId.value);
                             const isFromMe = Number(sId) === Number(currentUserId.value);
                             
+                            // 判断当前是否在消息中心页面
+                            const isInMessageCenter = activeTab.value === 'messages';
+                            
                             if (isFromCurrentFriend) {
                                 console.log('匹配成功，推入对方消息气泡');
                                 privateMessages.value.push(msg);
                                 nextTick(() => scrollToBottom());
+                                // 【修复】收到当前聊天对象的消息时，如果正在消息中心页面，立即标记为已读
+                                if (isInMessageCenter) {
+                                    markAsRead(currentChatFriendId.value).then(() => {
+                                        // 标记完成后刷新左侧会话列表（更新预览文字和未读数）
+                                        safeRequest('/message/sessions', 'GET').then(list => {
+                                            chatList.value = list || [];
+                                        });
+                                        // 同时更新侧边栏的总未读红点
+                                        fetchTotalUnread();
+                                    });
+                                } else {
+                                    // 不在消息中心页面，只刷新列表和未读数（显示红点）
+                                    safeRequest('/message/sessions', 'GET').then(list => {
+                                        chatList.value = list || [];
+                                    });
+                                    fetchTotalUnread();
+                                }
                             } else if (isFromMe) {
                                 // 如果是自己发的消息回执，且当前列表里还没这条消息（防止重复），则添加
                                 // 实际上 sendPrivateMsg 里已经 push 过了，这里可以用来做发送成功的状态校验
                                 console.log('收到自己的消息回执');
+                                // 刷新左侧会话列表和总未读数
+                                safeRequest('/message/sessions', 'GET').then(list => {
+                                    chatList.value = list || [];
+                                });
+                                fetchTotalUnread();
+                            } else {
+                                // 消息来自其他非当前聊天对象，只刷新列表和未读数（显示红点）
+                                safeRequest('/message/sessions', 'GET').then(list => {
+                                    chatList.value = list || [];
+                                });
+                                fetchTotalUnread();
                             }
-
-                            // 只要有新消息，就刷新左侧会话列表（更新预览文字）
-                            safeRequest('/message/sessions', 'GET').then(list => {
-                                chatList.value = list || [];
-                            });
-                            // 同时更新侧边栏的总未读红点
-                            fetchTotalUnread();
                         }
                     } catch (e) {
                         console.error('解析消息失败:', e);
@@ -737,6 +761,17 @@
                     chatList.value = list || [];
                 } catch (e) {
                     alert('删除失败');
+                }
+            }
+
+            // 【新增】标记与某人的消息为已读
+            async function markAsRead(friendId) {
+                if (!friendId) return Promise.resolve();
+                try {
+                    await safeRequest('/message/read/' + friendId, 'POST');
+                    console.log('标记已读成功: friendId=' + friendId);
+                } catch (e) {
+                    console.error('标记已读失败:', e);
                 }
             }
 
@@ -1087,7 +1122,7 @@
                 removePost, loadMyLostPosts, applyPin, logout, goToMessages, selectChat, sendPrivateMsg,
                 confirmDeleteChat, fetchTotalUnread, isPinSubmitting, replaceCreateDescWithAi, replaceEditDescWithAi,
                 generateCreateAiDesc, generateEditAiDesc, aiGenerating, canGenerateAi, markAsFound, isFoundSubmitting,
-                openClaimApply, reviewClaim, claimStatusText, ownerClaims, myClaimStatusMap, openReport, canChatWithOwner, isSelfUser
+                openClaimApply, reviewClaim, claimStatusText, ownerClaims, myClaimStatusMap, openReport, canChatWithOwner, isSelfUser, markAsRead
             };
         }
     }).mount('#app');

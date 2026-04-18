@@ -46,12 +46,11 @@ public class MessageController {
         return ResultJson.success(list);
     }
 
-    // 3. 统计未读消息数（用于在首页显示小红点）
+    // 3. 统计未读消息数（首页显示小红点）
     @GetMapping("/unread/count")
     public ResultJson<Long> getUnreadCount() {
         Map<String,Object> map = ThreadLocalUtil.get();
-        Object uidObj = map.get("userid");
-        Long userid = Long.parseLong(String.valueOf(uidObj));
+        Long userid = Long.parseLong(String.valueOf(map.get("userid")));
         return ResultJson.success(messageService.countUnread(userid));
     }
 
@@ -59,8 +58,7 @@ public class MessageController {
     @GetMapping("/sessions")
     public ResultJson<List<Map<String, Object>>> getChatSessions() {
         Map<String, Object> map = ThreadLocalUtil.get();
-        Object uidObj = map.get("userid");
-        Long userid = Long.parseLong(String.valueOf(uidObj));
+        Long userid = Long.parseLong(String.valueOf(map.get("userid")));
         List<Map<String, Object>> list = messageService.getChatSessions(userid);
         return ResultJson.success(list);
     }
@@ -69,11 +67,20 @@ public class MessageController {
     @DeleteMapping("/sessions/{friendId}")
     public ResultJson<String> deleteSession(@PathVariable Long friendId) {
         Map<String, Object> map = ThreadLocalUtil.get();
-        Object uidObj = map.get("userid");
-        Long userid = Long.parseLong(String.valueOf(uidObj));
+        Long userid = Long.parseLong(String.valueOf(map.get("userid")));
         messageService.deleteSession(userid, friendId);
         log.info("用户 {} 删除了与 {} 的所有聊天记录", userid, friendId);
         return ResultJson.success("删除成功");
+    }
+
+    // 标记与某人的所有消息为已读
+    @PostMapping("/read/{friendId}")
+    public ResultJson<String> markAsRead(@PathVariable Long friendId) {
+        Map<String, Object> map = ThreadLocalUtil.get();
+        Long userid = Long.parseLong(String.valueOf(map.get("userid")));
+        messageService.markAsRead(userid, friendId);
+        log.info("用户 {} 标记与 {} 的消息为已读", userid, friendId);
+        return ResultJson.success("已标记为已读");
     }
 
     private void enrichMessageUserInfo(List<Message> messages) {

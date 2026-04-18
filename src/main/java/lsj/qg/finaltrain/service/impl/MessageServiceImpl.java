@@ -170,6 +170,26 @@ public class MessageServiceImpl implements MessageService {
         );
     }
 
+    /**
+     * 标记与某人的所有消息为已读
+     * 用于实时聊天时，收到对方消息后立即标记已读
+     */
+    @Override
+    public void markAsRead(Long userId, Long friendId) {
+        if (userId == null || friendId == null) {
+            throw new NullPointerException("userId/friendId is null");
+        }
+        // 将对方发给我的未读消息标记为已读
+        messageMapper.update(null,
+                new LambdaUpdateWrapper<Message>()
+                        .set(Message::getIsRead, 1)
+                        .eq(Message::getType, 2)
+                        .eq(Message::getSenderId, friendId)
+                        .eq(Message::getReceiverId, userId)
+                        .eq(Message::getIsRead, 0)
+        );
+    }
+
     //获取用户的显示名称（优先昵称，其次用户名）
     private String getDisplayName(User user, Long userId) {
         if (user == null) return "用户" + userId;
