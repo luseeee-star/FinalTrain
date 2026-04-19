@@ -222,7 +222,7 @@ public class ItemServiceImpl implements ItemService {
         // 3. 构建用户消息（包含文本提示词 + 图片列表）
         UserMessage message = new UserMessage(prompt, mediaList);
 
-        // 4. 创建 Prompt，配置多模态模型参数
+        // 4. 创建 Prompt，配置多模态模型参数，因为图片不同于纯文本，比较复杂，所以要严格创建封装对象
         Prompt chatPrompt = new Prompt(
                 message,
                 DashScopeChatOptions.builder()
